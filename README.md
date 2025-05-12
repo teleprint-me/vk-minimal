@@ -1,51 +1,74 @@
 # VkMinimal
 
-A minimal compute pipeline for Vulkan in C.
+A minimal headless compute pipeline using Vulkan in C.
 
 ## Dependencies
 
-This implementation is designed to be minimal, headless, and Unix-focused, using GPU compute where
-available:
+This project is designed for raw, low-level compute on Unix-like systems, emphasizing simplicity and
+transparency:
 
-- **Linux** — Primary development and testing environment.
-- **POSIX** — Ensures compatibility across Unix-like systems.
-- **libc** — Standard C runtime for basic I/O and memory management.
-- **Vulkan**
-- **SPIR-V**
+- **POSIX** — For broad compatibility across Unix systems.
+- **Linux** — Target environment; tested on modern distributions.
+- **CMake** — For project configuration and build management.
+- **PThreads** — Enables multi-threaded execution.
+- **libc** — Standard C library for system-level utilities.
+- **SPIR-V** — Portable shader intermediate representation.
+- **Vulkan** — Cross-platform GPU API for compute workloads.
 
-The entire GPU pipeline runs via compute shaders, with no windowing or graphics
-context—just raw computation.
+All GPU work is done via compute shaders—no windowing, no rendering, no BS.
 
 ## Build
 
+### 1. `build.sh`
+
+Automates compilation of binaries and SPIR-V shaders.
+
+- Creates a `build` directory and required subdirectories:
+
+  - `shaders/` for SPIR-V binaries.
+  - `examples/` for test drivers.
+
+- Builds:
+
+  - CPU and Vulkan examples.
+  - GLSL shaders (compiled to SPIR-V).
+
 ```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug -j$(nproc)
-./build/main
+chmod +x build.sh && ./build.sh
+```
+
+### 2. `vk.sh`
+
+A development script to run the Vulkan binary under AddressSanitizer (ASAN):
+
+- Applies custom suppressions via `asan.supp`.
+- Configures LSAN and ASAN environment variables.
+- Launches the Vulkan example with precompiled shaders.
+
+```sh
+chmod +x vk.sh && ./vk.sh
 ```
 
 ## Resources
 
-### Low-Level GPU Programming
+### GPU and Driver Internals
 
 - [DRM Overview](https://dri.freedesktop.org/wiki/DRM/)
-- [Render Nodes](https://dri.freedesktop.org/docs/drm/gpu/drm-uapi.html#render-nodes)
-- [Mesa GBM](https://en.wikipedia.org/wiki/Mesa_%28computer_graphics%29)
+- [Render Nodes (DRM)](https://dri.freedesktop.org/docs/drm/gpu/drm-uapi.html#render-nodes)
+- [Mesa GBM Overview](https://en.wikipedia.org/wiki/Mesa_%28computer_graphics%29)
 
   - [Mesa GBM Source](https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/src/gbm)
 
-### Kernel and Driver Internals
+- [Linux GPU Subsystem Docs](https://www.kernel.org/doc/html/latest/gpu/index.html)
 
-- [Linux GPU Subsystem Documentation](https://www.kernel.org/doc/html/latest/gpu/index.html)
-    - [Devices](https://www.kernel.org/doc/Documentation/admin-guide/devices.txt)
+  - [Device Management](https://www.kernel.org/doc/Documentation/admin-guide/devices.txt)
 
-### Khronos Specifications
+### Vulkan + SPIR-V Specs
 
-- [SPIR-V Specification](https://registry.khronos.org/SPIR-V/#spec)
-- [Vulkan Specification](https://registry.khronos.org/vulkan/#apispecs)
+- [SPIR-V Spec](https://registry.khronos.org/SPIR-V/#spec)
+- [Vulkan Spec](https://registry.khronos.org/vulkan/#apispecs)
 
 ## License
 
-Licensed under the **GNU Affero General Public License (AGPL)** to ensure full freedom of use,
-modification, and redistribution. Built for educational exploration, transparency, and long-term
-adaptability.
+This project is released under the **GNU Affero General Public License (AGPL)** to guarantee
+end-user freedom, transparency, and educational value.
