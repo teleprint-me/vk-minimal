@@ -1,24 +1,34 @@
 // examples/vk.c
-#include <vulkan/vulkan.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "logger.h"
 
-int main(void) {
-    // --- Create VkInstance ---
+#include <vulkan/vulkan.h>
 
-    VkApplicationInfo app_info = {
+#include <stdlib.h>
+#include <stdio.h>
+
+int main(void) {
+    // Result codes and handles
+    VkResult result;
+
+    /**
+     * Create VkInstance
+     */
+
+    VkApplicationInfo app_info = {0};
+    VkInstanceCreateInfo create_info = {0};
+    VkInstance instance = VK_NULL_HANDLE;
+
+    app_info = (VkApplicationInfo) {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "vk-minimal",
-        .applicationVersion = VK_MAKE_API_VERSION(0, 1, 4, 0),
+        .applicationVersion = VK_API_VERSION_1_4,
         .pEngineName = "no-engine",
-        .engineVersion = VK_MAKE_API_VERSION(0, 1, 4, 0),
+        .engineVersion = VK_API_VERSION_1_4,
         .apiVersion = VK_API_VERSION_1_4,
     };
 
     // No extensions or validation layers for now
-    VkInstanceCreateInfo create_info = {
+    create_info = (VkInstanceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
         .enabledExtensionCount = 0,
@@ -27,8 +37,7 @@ int main(void) {
         .ppEnabledLayerNames = NULL,
     };
 
-    VkInstance instance;
-    VkResult result = vkCreateInstance(&create_info, NULL, &instance);
+    result = vkCreateInstance(&create_info, NULL, &instance);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create Vulkan instance: %d", result);
         return EXIT_FAILURE;
@@ -36,24 +45,34 @@ int main(void) {
 
     LOG_INFO("Vulkan instance created successfully.");
 
-    // --- Create VkPhysicalDevice ---
+    /**
+     * Create VkPhysicalDevice
+     *
+     * @note
+     * We can not allocate array memory to the stack because
+     * goto disrupts the control flow.
+     */
 
-    uint32_t device_count = 0;
-    vkEnumeratePhysicalDevices(instance, &device_count, NULL); // ASAN is detecting leaks
-    if (device_count == 0) {
+    uint32_t physical_device_count = 0;
+    uint32_t compute_queue_family_index = UINT32_MAX;
+    VkPhysicalDevice* physical_devices = VK_NULL_HANDLE;
+    VkPhysicalDevice selected_device = VK_NULL_HANDLE;
+
+    vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL); // ASAN is detecting leaks
+    if (physical_device_count == 0) {
         LOG_ERROR("No Vulkan-compatible GPUs found.");
-        vkDestroyInstance(instance, NULL);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
+    }
+    physical_devices = malloc(sizeof(VkPhysicalDevice) * physical_device_count);
+    if (!physical_devices) {
+        LOG_ERROR("Failed to allocate physical device list.");
+        goto cleanup_instance;
     }
 
-    VkPhysicalDevice physical_devices[device_count];
-    vkEnumeratePhysicalDevices(instance, &device_count, physical_devices);
+    vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
 
     // Pick the first device with compute support
-    VkPhysicalDevice selected_device = VK_NULL_HANDLE;
-    uint32_t compute_queue_family_index = UINT32_MAX;
-
-    for (uint32_t i = 0; i < device_count; ++i) {
+    for (uint32_t i = 0; i < physical_device_count; ++i) {
         uint32_t queue_family_count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, NULL);
 
@@ -74,24 +93,69 @@ int main(void) {
             break;
         }
     }
+    free(physical_devices); // Cleaup to prevent leaks!
 
     if (selected_device == VK_NULL_HANDLE) {
         LOG_ERROR("No suitable GPU found with compute capabilities.");
-        vkDestroyInstance(instance, NULL);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     LOG_INFO(
         "Selected physical device with compute queue family index: %u", compute_queue_family_index
     );
 
-    // --- Create VkLogicalDevice ---
+    /**
+     * Create VkLogicalDevice
+     */
 
-    /// @todo
+    static float queue_priority = 1.0f;
+    VkDeviceQueueCreateInfo queue_info = {0};
+    VkDeviceCreateInfo device_info = {0};
+
+    VkDevice device = VK_NULL_HANDLE;
+    VkQueue compute_queue = VK_NULL_HANDLE;
+
+    // The compute queue family we want access to.
+    queue_info = (VkDeviceQueueCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = compute_queue_family_index,
+        .queueCount = 1,
+        .pQueuePriorities = &queue_priority,
+    };
+
+    device_info = (VkDeviceCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queue_info,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = NULL,
+        .pEnabledFeatures = NULL, // VkPhysicalDeviceFeatures later if needed
+    };
+
+    result = vkCreateDevice(selected_device, &device_info, NULL, &device);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to create logical device: %d", result);
+        goto cleanup_instance;
+    }
+    LOG_INFO("Logical device created.");
+
+    vkGetDeviceQueue(device, compute_queue_family_index, 0, &compute_queue);
+    LOG_INFO("Retrieved compute queue.");
+
+    // stub to silence the compiler about unused variables
+    // we'll need this later regardless.
+    if (!device) {
+        goto cleanup_device;
+    }
 
     // Clean up
+cleanup_device:
+    vkDestroyDevice(device, NULL);
+cleanup_instance:
     vkDestroyInstance(instance, NULL);
-    LOG_INFO("Vulkan instance destroyed.");
 
+    LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;
 }
