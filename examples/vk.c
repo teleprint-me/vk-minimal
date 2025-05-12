@@ -8,7 +8,9 @@
 #include <stdio.h>
 
 int main(void) {
-    // Lease Allocator to sanely track memory allocations
+    /**
+     * Lease Allocator to sanely track memory allocations. 
+     */
 
     // Scope is Local and Type is Owned
     LeasePolicy policy = {
@@ -24,7 +26,7 @@ int main(void) {
     VkResult result;
 
     /**
-     * Create VkInstance
+     * Create a Vulkan Instance
      */
 
     VkApplicationInfo app_info = {0};
@@ -59,7 +61,7 @@ int main(void) {
     LOG_INFO("Vulkan instance created successfully.");
 
     /**
-     * Create VkPhysicalDevice
+     * Create a Vulkan Physical Device
      *
      * @note
      * We can not allocate array memory to the stack because
@@ -120,7 +122,7 @@ int main(void) {
     );
 
     /**
-     * Create VkLogicalDevice
+     * Create a Vulkan Logical Device
      */
 
     static float queue_priority = 1.0f;
@@ -188,7 +190,7 @@ int main(void) {
     fclose(file);
 
     /**
-     * Create VkShaderModule
+     * Create a Vulkan Shader Module
      */
     VkShaderModule shader_module;
     VkShaderModuleCreateInfo shader_info = {0};
