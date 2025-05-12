@@ -1,6 +1,6 @@
 // examples/vk.c
 #include "logger.h"
-#include "shader.h"
+#include "lease.h"
 
 #include <vulkan/vulkan.h>
 
@@ -8,6 +8,18 @@
 #include <stdio.h>
 
 int main(void) {
+    // Lease Allocator to sanely track memory allocations
+
+    // Scope is Local and Type is Owned
+    LeasePolicy policy = {
+        .scope = LEASE_ACCESS_LOCAL,
+        .type = LEASE_CONTRACT_OWNED,
+    };
+
+    // Assume 8 objects are allocated.
+    // We can realloc on demand if we get errors.
+    LeaseOwner* owner = lease_create(8);
+
     // Result codes and handles
     VkResult result;
 
@@ -16,7 +28,7 @@ int main(void) {
      */
 
     VkApplicationInfo app_info = {0};
-    VkInstanceCreateInfo create_info = {0};
+    VkInstanceCreateInfo instance_info = {0};
     VkInstance instance = VK_NULL_HANDLE;
 
     app_info = (VkApplicationInfo) {
@@ -29,7 +41,7 @@ int main(void) {
     };
 
     // No extensions or validation layers for now
-    create_info = (VkInstanceCreateInfo) {
+    instance_info = (VkInstanceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
         .enabledExtensionCount = 0,
@@ -38,10 +50,10 @@ int main(void) {
         .ppEnabledLayerNames = NULL,
     };
 
-    result = vkCreateInstance(&create_info, NULL, &instance);
+    result = vkCreateInstance(&instance_info, NULL, &instance);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create Vulkan instance: %d", result);
-        return EXIT_FAILURE;
+        goto cleanup_lease;
     }
 
     LOG_INFO("Vulkan instance created successfully.");
@@ -64,7 +76,10 @@ int main(void) {
         LOG_ERROR("No Vulkan-compatible GPUs found.");
         goto cleanup_instance;
     }
-    physical_devices = malloc(sizeof(VkPhysicalDevice) * physical_device_count);
+
+    // Track the allocated device list
+    physical_devices
+        = lease_address(owner, policy, sizeof(VkPhysicalDevice) * physical_device_count);
     if (!physical_devices) {
         LOG_ERROR("Failed to allocate physical device list.");
         goto cleanup_instance;
@@ -94,7 +109,6 @@ int main(void) {
             break;
         }
     }
-    free(physical_devices); // Cleaup to prevent leaks!
 
     if (selected_device == VK_NULL_HANDLE) {
         LOG_ERROR("No suitable GPU found with compute capabilities.");
@@ -146,11 +160,48 @@ int main(void) {
     LOG_INFO("Retrieved compute queue.");
 
     /**
-     * Create VkShaderModule
+     * Read SPIR-V Binary File
      */
 
-    VkShaderModule shader_module = shader_load_module(device, "build/shaders/mean.spv");
-    if (shader_module != VK_SUCCESS) {
+    size_t code_size = 0;
+    const char* filepath = "build/shaders/mean.spv";
+
+    FILE* file = fopen(filepath, "rb");
+    if (!file) {
+        LOG_ERROR("Failed to open SPIR-V file: %s", filepath);
+        goto cleanup_device;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    rewind(file);
+
+    // Track the buffer because Vulkan won't free this later on for us.
+    char* code = (char*) lease_address(owner, policy, (size_t) length + 1);
+    if (!code) {
+        fclose(file);
+        LOG_ERROR("Failed to allocate memory for shader file");
+        goto cleanup_device;
+    }
+
+    fread(code, 1, length, file); // assuming fread null terminates buffer for us
+    fclose(file);
+
+    /**
+     * Create VkShaderModule
+     */
+    VkShaderModule shader_module;
+    VkShaderModuleCreateInfo shader_info = {0};
+
+    shader_info = (VkShaderModuleCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = code_size,
+        .pCode = (uint32_t*) code,
+    };
+
+    result = vkCreateShaderModule(device, &shader_info, NULL, &shader_module);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to create shader module from %s", filepath);
         goto cleanup_device;
     }
 
@@ -163,11 +214,13 @@ int main(void) {
      * Clean up
      */
 cleanup_shader:
-    shader_destroy_module(device, shader_module);
+    vkDestroyShaderModule(device, shader_module, NULL);
 cleanup_device:
     vkDestroyDevice(device, NULL);
 cleanup_instance:
     vkDestroyInstance(instance, NULL);
+cleanup_lease:
+    lease_free(owner);
 
     LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;
