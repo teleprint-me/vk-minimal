@@ -37,7 +37,6 @@ add_library(vk-minimal SHARED
     "src/memory.c"
     "src/hash_table.c"
     "src/lease.c"
-    "src/device.c"
     "src/shader.c"
 )
 target_include_directories(vk-minimal PUBLIC include)
