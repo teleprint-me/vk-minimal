@@ -6,7 +6,8 @@
 #include "logger.h"
 
 int main(void) {
-    // 1. Fill in application info
+    // --- Create VkInstance ---
+
     VkApplicationInfo app_info = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "vk-minimal",
@@ -16,7 +17,7 @@ int main(void) {
         .apiVersion = VK_API_VERSION_1_4,
     };
 
-    // 2. No extensions or validation layers for now
+    // No extensions or validation layers for now
     VkInstanceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
@@ -26,7 +27,6 @@ int main(void) {
         .ppEnabledLayerNames = NULL,
     };
 
-    // 3. Create Vulkan instance
     VkInstance instance;
     VkResult result = vkCreateInstance(&create_info, NULL, &instance);
     if (result != VK_SUCCESS) {
@@ -35,6 +35,8 @@ int main(void) {
     }
 
     LOG_INFO("Vulkan instance created successfully.");
+
+    // --- Create VkPhysicalDevice ---
 
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(instance, &device_count, NULL); // ASAN is detecting leaks
@@ -83,7 +85,11 @@ int main(void) {
         "Selected physical device with compute queue family index: %u", compute_queue_family_index
     );
 
-    // 4. Clean up
+    // --- Create VkLogicalDevice ---
+
+    /// @todo
+
+    // Clean up
     vkDestroyInstance(instance, NULL);
     LOG_INFO("Vulkan instance destroyed.");
 
