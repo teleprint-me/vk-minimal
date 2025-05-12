@@ -1,0 +1,3 @@
+leak:*pthread_once
+leak:*realloc
+leak:*vkEnumeratePhysicalDevices
