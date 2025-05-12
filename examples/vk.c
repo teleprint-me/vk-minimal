@@ -1,5 +1,6 @@
 // examples/vk.c
 #include "logger.h"
+#include "shader.h"
 
 #include <vulkan/vulkan.h>
 
@@ -144,13 +145,25 @@ int main(void) {
     vkGetDeviceQueue(device, compute_queue_family_index, 0, &compute_queue);
     LOG_INFO("Retrieved compute queue.");
 
-    // stub to silence the compiler about unused variables
-    // we'll need this later regardless.
-    if (!device) {
+    /**
+     * Create VkShaderModule
+     */
+
+    VkShaderModule shader_module = shader_load_module(device, "build/shaders/mean.spv");
+    if (shader_module != VK_SUCCESS) {
         goto cleanup_device;
     }
 
-    // Clean up
+    // stub
+    if (!device) {
+        goto cleanup_shader;
+    }
+
+    /**
+     * Clean up
+     */
+cleanup_shader:
+    shader_destroy_module(device, shader_module);
 cleanup_device:
     vkDestroyDevice(device, NULL);
 cleanup_instance:
