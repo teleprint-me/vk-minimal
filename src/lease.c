@@ -174,13 +174,13 @@ LeaseState lease_terminate(LeaseOwner* owner, void* address) {
         return HASH_KEY_NOT_FOUND;
     }
 
-    if (tenant->policy.type == LEASE_CONTRACT_OWNED && tenant->address) {
+    if (tenant->address && tenant->policy.type == LEASE_CONTRACT_OWNED) {
         free(tenant->address);
     }
 
+    // remove entry from table
     free(tenant); // hash table will not free tenants
-    hash_table_delete(owner, address); // remove entry from table
-    return HASH_SUCCESS;
+    return hash_table_delete(owner, address); // return hash table state
 }
 
 void lease_free(LeaseOwner* owner) {
