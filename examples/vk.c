@@ -14,14 +14,15 @@ void* VKAPI_CALL vk_lease_alloc(
     VkSystemAllocationScope scope
 ) {
     (void) alignment;
-    (void) scope;
-    LeaseOwner* lease = (LeaseOwner*)pUserData;
+    LeaseOwner* lease = (LeaseOwner*) pUserData;
+    if (!lease) return NULL;
     LeasePolicy policy = {
         .type = LEASE_CONTRACT_OWNED,
         .scope = scope == VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE ? LEASE_ACCESS_GLOBAL : LEASE_ACCESS_LOCAL
     };
 
     void* ptr = lease_address(lease, policy, size);
+    if (!ptr) return NULL;
     LOG_INFO("[VK_ALLOC] %p (%zu bytes)", ptr, size);
     return ptr;
 }
@@ -35,7 +36,7 @@ void* VKAPI_CALL vk_lease_realloc(
 ) {
     (void) alignment;
     (void) scope;
-    LeaseOwner* lease = (LeaseOwner*)pUserData;
+    LeaseOwner* lease = (LeaseOwner*) pUserData;
     LeaseState state = lease_realloc(lease, pOriginal, size);
     if (state != HASH_SUCCESS) {
         return NULL;
@@ -48,7 +49,7 @@ void* VKAPI_CALL vk_lease_realloc(
 }
 
 void VKAPI_CALL vk_lease_free(void* pUserData, void* pMemory) {
-    LeaseOwner* lease = (LeaseOwner*)pUserData;
+    LeaseOwner* lease = (LeaseOwner*) pUserData;
     if (!pMemory) return;
 
     LeaseTenant* tenant = lease_find(lease, pMemory);
@@ -80,6 +81,17 @@ void VKAPI_CALL vk_lease_internal_free(
     LOG_INFO("[VK_INTERNAL_FREE] Size: %zu Type: %d Scope: %d", size, type, scope);
 }
 
+VkAllocationCallbacks VKAPI_CALL vk_make_lease_callbacks(LeaseOwner* owner) {
+    return (VkAllocationCallbacks) {
+        .pUserData = owner,  // or pass this dynamically
+        .pfnAllocation = vk_lease_alloc,
+        .pfnReallocation = vk_lease_realloc,
+        .pfnFree = vk_lease_free,
+        .pfnInternalAllocation = vk_lease_internal_alloc,
+        .pfnInternalFree = vk_lease_internal_free
+    };    
+}
+
 int main(void) {
     /**
      * Lease Allocator to sanely track memory allocations.
@@ -89,15 +101,9 @@ int main(void) {
         .type = LEASE_CONTRACT_OWNED,
         .scope = LEASE_ACCESS_LOCAL
     };
-    LeaseOwner* g_lease_owner = lease_create(1024);
-    VkAllocationCallbacks leaseAllocator = {
-        .pUserData = g_lease_owner,  // or pass this dynamically
-        .pfnAllocation = vk_lease_alloc,
-        .pfnReallocation = vk_lease_realloc,
-        .pfnFree = vk_lease_free,
-        .pfnInternalAllocation = vk_lease_internal_alloc,
-        .pfnInternalFree = vk_lease_internal_free
-    };
+    LeaseOwner* g_lease_owner = lease_create(1024); // local
+    LeaseOwner* vk_lease_owner = lease_create(2048); // scoped
+    VkAllocationCallbacks vk_alloc = vk_make_lease_callbacks(vk_lease_owner);
 
     // Result codes and handles
     VkResult result;
@@ -129,7 +135,7 @@ int main(void) {
         .ppEnabledLayerNames = NULL,
     };
 
-    result = vkCreateInstance(&instance_info, &leaseAllocator, &instance);
+    result = vkCreateInstance(&instance_info, &vk_alloc, &instance);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create Vulkan instance: %d", result);
         goto cleanup_lease;
@@ -231,7 +237,7 @@ int main(void) {
         .pEnabledFeatures = NULL, // VkPhysicalDeviceFeatures later if needed
     };
 
-    result = vkCreateDevice(selected_device, &device_info, NULL, &device);
+    result = vkCreateDevice(selected_device, &device_info, &vk_alloc, &device);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         goto cleanup_instance;
@@ -286,7 +292,7 @@ int main(void) {
         .pCode = (uint32_t*) code,
     };
 
-    result = vkCreateShaderModule(device, &shader_info, NULL, &shader_module);
+    result = vkCreateShaderModule(device, &shader_info, &vk_alloc, &shader_module);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create shader module from %s", filepath);
         goto cleanup_device;
@@ -308,6 +314,7 @@ cleanup_instance:
     vkDestroyInstance(instance, NULL);
 cleanup_lease:
     lease_free(g_lease_owner);
+    lease_free(vk_lease_owner);
 
     LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;
