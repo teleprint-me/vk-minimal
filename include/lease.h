@@ -27,8 +27,12 @@
 
 #include "hash_table.h"
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
+
+/**
+ * @brief Access and ownership models for dynamic memory.
+ */
 
 typedef enum LeaseAccess {
     LEASE_ACCESS_GLOBAL,
@@ -41,6 +45,10 @@ typedef enum LeaseContract {
     LEASE_CONTRACT_BORROWED,
     LEASE_CONTRACT_STATIC
 } LeaseContract;
+
+/**
+ * @brief Core memory lease structures.
+ */
 
 typedef struct LeasePolicy {
     LeaseAccess access;
@@ -62,28 +70,41 @@ typedef HashTableState LeaseState;
 typedef HashTable LeaseOwner;
 
 /**
- * Create lease objects
+ * @section Creation
  */
 
+LeaseOwner* lease_create_owner(size_t capacity);
 LeasePolicy* lease_create_policy(LeaseAccess access, LeaseContract contract);
 LeaseObject* lease_create_object(void* address, size_t size, size_t alignment);
 LeaseTenant* lease_create_tenant(LeasePolicy* policy, LeaseObject* object);
-LeaseTenant* lease_create_tenant_owned(size_t size, size_t alignment);
-LeaseTenant* lease_create_tenant_borrowed(void* address, size_t size, size_t alignment);
-LeaseTenant* lease_create_tenant_static(void* address, size_t size, size_t alignment);
-LeaseOwner* lease_create_owner(size_t capacity);
 
 /**
- * Free lease objects
+ * @section Destruction
  */
 
+void lease_free_owner(LeaseOwner* owner);
 void lease_free_policy(LeasePolicy* policy);
 void lease_free_object(LeasePolicy* policy, LeaseObject* object);
 void lease_free_tenant(LeaseTenant* tenant);
-void lease_free_owner(LeaseOwner* owner);
 
 /**
- * Lease operations
+ * @section Ownership Allocation
+ */
+
+LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment);
+LeaseTenant* lease_alloc_borrowed_tenant(void* address, size_t size, size_t alignment);
+LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignment);
+
+void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment);
+void* lease_alloc_borrowed_address(LeaseOwner* owner, void* address, size_t size, size_t alignment);
+void* lease_alloc_static_address(LeaseOwner* owner, void* address, size_t size, size_t alignment);
+
+char* lease_alloc_owned_string(LeaseOwner* owner, const char* address);
+char* lease_alloc_borrowed_string(LeaseOwner* owner, const char* address);
+char* lease_alloc_static_string(LeaseOwner* owner, const char* address);
+
+/**
+ * @section Metadata Access
  */
 
 LeaseTenant* lease_get_tenant(LeaseOwner* owner, void* address);
@@ -92,16 +113,19 @@ LeasePolicy* lease_get_policy(LeaseOwner* owner, void* address);
 LeaseAccess lease_get_access(LeaseOwner* owner, void* address);
 LeaseContract lease_get_contract(LeaseOwner* owner, void* address);
 
-void* lease_alloc_owned(LeaseOwner* owner, size_t size, size_t alignment);
-void* lease_alloc_borrowed(LeaseOwner* owner, void* address, size_t size, size_t alignment);
-void* lease_alloc_static(LeaseOwner* owner, void* address, size_t size, size_t alignment);
-
-char* lease_string_owned(LeaseOwner* owner, const char* address);
-char* lease_string_borrowed(LeaseOwner* owner, const char* address);
-char* lease_string_static(LeaseOwner* owner, const char* address);
+/**
+ * @section Mutation and Transfer
+ */
 
 LeaseState lease_realloc(LeaseOwner* owner, void* address, size_t size, size_t alignment);
 LeaseState lease_transfer(LeaseOwner* from, LeaseOwner* to, void* address);
-LeaseState lease_terminate(LeaseOwner* owner, void* address); // free one if owned
+LeaseState lease_terminate(LeaseOwner* owner, void* address); // frees if owned
+
+/**
+ * @section Debugging
+ */
+
+void lease_debug_tenant(LeaseTenant* tenant);
+void lease_debug_table(LeaseOwner* owner);
 
 #endif // LEASE_ALLOCATOR_H
