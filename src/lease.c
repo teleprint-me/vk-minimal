@@ -379,12 +379,12 @@ LeaseState lease_transfer(LeaseOwner* from, LeaseOwner* to, void* address) {
         return HASH_ERROR;
     }
 
-    LeaseTenant* from_tenant = lease_find(from, address);
+    LeaseTenant* from_tenant = lease_get_tenant(from, address);
     if (!from_tenant) {
         return HASH_KEY_NOT_FOUND;
     }
 
-    LeaseTenant* to_tenant = lease_find(to, address);
+    LeaseTenant* to_tenant = lease_get_tenant(to, address);
     if (to_tenant) {
         return HASH_KEY_EXISTS;
     }
@@ -401,16 +401,15 @@ LeaseState lease_transfer(LeaseOwner* from, LeaseOwner* to, void* address) {
 }
 
 LeaseState lease_terminate(LeaseOwner* owner, void* address) {
-    LeaseTenant* tenant = (LeaseTenant*) hash_table_search(owner, address);
+    LeaseTenant* tenant = lease_get_tenant(owner, address);
     if (!tenant) {
         return HASH_KEY_NOT_FOUND;
     }
 
-    if (tenant->address && tenant->policy.type == LEASE_CONTRACT_OWNED) {
-        free(tenant->address);
+    HashTableState state = hash_table_delete(owner, address);
+    if (HASH_SUCCESS == state) {
+        lease_free_tenant(tenant);
     }
 
-    // remove entry from table
-    free(tenant); // hash table will not free tenants
-    return hash_table_delete(owner, address); // return hash table state
+    return state; // return hash table state
 }
