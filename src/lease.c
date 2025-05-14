@@ -329,42 +329,47 @@ LeaseState lease_realloc(LeaseOwner* owner, void* address, size_t size, size_t a
         return HASH_ERROR;
     }
 
-    // Get the current tenant
-    LeaseTenant* tenant = lease_find(owner, address);
-    if (!tenant) {
+    LeaseTenant* old_tenant = lease_get_tenant(owner, address);
+    if (!old_tenant || !old_tenant->policy) {
         return HASH_KEY_NOT_FOUND;
     }
 
-    // Expand if new_size is smaller or equal
-    if (size <= tenant->size) {
-        size = tenant->size * 2;
+    if (old_tenant->policy->contract != LEASE_CONTRACT_OWNED) {
+        return HASH_ERROR; // illegal operation on borrowed/static memory
     }
 
-    // Create a new tenant
-    void* address = lease_address(owner, )
+    size_t old_size = old_tenant->object->size;
+    void* old_address = old_tenant->object->address;
 
-        // Tenant may be assigned a new address
-        void* new_address
-        = realloc(tenant->address, new_size);
-    if (!new_address) {
+    if (size <= old_size) {
+        return HASH_SUCCESS; // no need to realloc — caller's request already satisfied
+    }
+
+    // Allocate a new tenant
+    LeaseTenant* new_tenant = lease_alloc_owned_tenant(size, alignment);
+    if (!new_tenant || !new_tenant->object) {
         return HASH_ERROR;
     }
 
-    // Remove the current tenant from the table
+    void* new_address = new_tenant->object->address;
+
+    // Copy old data into new region
+    memcpy(new_address, old_address, old_size);
+
+    // Remove old address from table
     if (HASH_SUCCESS != hash_table_delete(owner, address)) {
-        free(new_address);
+        lease_free_tenant(new_tenant);
         return HASH_ERROR;
     }
 
-    // Update tenant
-    tenant->address = new_address;
-    tenant->size = new_size;
-
-    // Insert under new key (rehash)
-    if (HASH_SUCCESS != hash_table_insert(owner, new_address, tenant)) {
-        free(new_address); // if you want to be defensive
+    // Insert new address/tenant pair
+    if (HASH_SUCCESS != hash_table_insert(owner, new_address, new_tenant)) {
+        lease_free_tenant(new_tenant);
         return HASH_ERROR;
     }
+
+    // Free the old tenant
+    lease_free_tenant(old_tenant);
 
     return HASH_SUCCESS;
 }
