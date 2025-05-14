@@ -46,5 +46,9 @@
     "editor.formatOnSave": false,
     "editor.insertSpaces": true
   },
-  "files.associations": {}
+  "files.associations": {
+    "*.tcss": "jinja-css",
+    "*.h": "c",
+    "coroutine": "c"
+  }
 }
