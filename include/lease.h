@@ -88,16 +88,24 @@ void lease_free_object(LeasePolicy* policy, LeaseObject* object);
 void lease_free_tenant(LeaseTenant* tenant);
 
 /**
- * @section Ownership Allocation
+ * @section Tenant Allocation
  */
 
 LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment);
 LeaseTenant* lease_alloc_borrowed_tenant(void* address, size_t size, size_t alignment);
 LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignment);
 
+/**
+ * @section Address Allocation
+ */
+
 void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment);
 void* lease_alloc_borrowed_address(LeaseOwner* owner, void* address, size_t size, size_t alignment);
 void* lease_alloc_static_address(LeaseOwner* owner, void* address, size_t size, size_t alignment);
+
+/**
+ * @section String Allocation
+ */
 
 char* lease_alloc_owned_string(LeaseOwner* owner, const char* address);
 char* lease_alloc_borrowed_string(LeaseOwner* owner, const char* address);
