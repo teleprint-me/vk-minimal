@@ -89,6 +89,8 @@ void lease_free_owner(LeaseOwner* owner);
 LeaseTenant* lease_get_tenant(LeaseOwner* owner, void* address);
 LeaseObject* lease_get_object(LeaseOwner* owner, void* address);
 LeasePolicy* lease_get_policy(LeaseOwner* owner, void* address);
+LeaseAccess lease_get_access(LeaseOwner* owner, void* address);
+LeaseContract lease_get_contract(LeaseOwner* owner, void* address);
 
 void* lease_alloc_owned(LeaseOwner* owner, size_t size, size_t alignment);
 void* lease_alloc_borrowed(LeaseOwner* owner, void* address, size_t size, size_t alignment);
