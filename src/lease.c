@@ -281,6 +281,14 @@ char* lease_alloc_owned_string(LeaseOwner* owner, const char* address) {
     return string;
 }
 
+char* lease_alloc_borrowed_string(LeaseOwner* owner, const char* address) {
+    return lease_alloc_borrowed_address(owner, address, strlen(address), alignof(char));
+}
+
+char* lease_alloc_static_string(LeaseOwner* owner, const char* address) {
+    return lease_alloc_static_address(owner, address, strlen(address), alignof(char));
+}
+
 /**
  * @section Metadata Access
  */
