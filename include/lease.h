@@ -126,6 +126,6 @@ LeaseState lease_terminate(LeaseOwner* owner, void* address); // frees if owned
  */
 
 void lease_debug_tenant(LeaseTenant* tenant);
-void lease_debug_table(LeaseOwner* owner);
+void lease_debug_owner(LeaseOwner* owner);
 
 #endif // LEASE_ALLOCATOR_H

@@ -30,8 +30,12 @@
 #include <stdio.h>
 
 /**
- * Create lease objects
+ * @section Creation
  */
+
+LeaseOwner* lease_create_owner(size_t capacity) {
+    return hash_table_create(capacity, HASH_TYPE_ADDRESS);
+}
 
 LeasePolicy* lease_create_policy(LeaseAccess access, LeaseContract contract) {
     LeasePolicy* policy = memory_aligned_size(sizeof(LeasePolicy), alignof(LeasePolicy));
@@ -84,7 +88,56 @@ LeaseTenant* lease_create_tenant(LeasePolicy* policy, LeaseObject* object) {
     return tenant;
 }
 
-LeaseTenant* lease_create_tenant_owned(size_t size, size_t alignment) {
+/**
+ * @section Destruction
+ */
+
+void lease_free_owner(LeaseOwner* owner) {
+    if (owner) {
+        for (uint64_t i = 0; i < owner->size; i++) {
+            HashTableEntry* entry = &owner->entries[i];
+            if (!entry || !entry->key || !entry->value) {
+                continue; // Skip empty or invalid entries
+            }
+
+            LeaseTenant* tenant = (LeaseTenant*) entry->value;
+            if (tenant) {
+                lease_free_tenant(tenant);
+            }
+        }
+
+        hash_table_free(owner);
+    }
+}
+
+void lease_free_policy(LeasePolicy* policy) {
+    if (policy) {
+        free(policy);
+    }
+}
+
+void lease_free_object(LeasePolicy* policy, LeaseObject* object) {
+    if (policy && object) { // object depends upon policy
+        if (object->address && policy->contract == LEASE_CONTRACT_OWNED) {
+            free(object->address); // policy determines freedom
+        }
+        free(object);
+    }
+}
+
+void lease_free_tenant(LeaseTenant* tenant) {
+    if (tenant) {
+        lease_free_object(tenant->policy, tenant->object);
+        lease_free_policy(tenant->policy);
+        free(tenant);
+    }
+}
+
+/**
+ * @section Tenant Allocation
+ */
+
+LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment) {
     if (size == 0 || alignment == 0) {
         return NULL;
     }
@@ -118,7 +171,7 @@ LeaseTenant* lease_create_tenant_owned(size_t size, size_t alignment) {
     return tenant;
 }
 
-LeaseTenant* lease_create_tenant_borrowed(void* address, size_t size, size_t alignment) {
+LeaseTenant* lease_alloc_borrowed_tenant(void* address, size_t size, size_t alignment) {
     if (!address || size == 0) {
         return NULL;
     }
@@ -145,7 +198,7 @@ LeaseTenant* lease_create_tenant_borrowed(void* address, size_t size, size_t ali
     return tenant;
 }
 
-LeaseTenant* lease_create_tenant_static(void* address, size_t size, size_t alignment) {
+LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignment) {
     if (!address || size == 0 || alignment == 0) {
         return NULL;
     }
@@ -171,60 +224,11 @@ LeaseTenant* lease_create_tenant_static(void* address, size_t size, size_t align
     return tenant;
 }
 
-LeaseOwner* lease_create_owner(size_t capacity) {
-    return hash_table_create(capacity, HASH_TYPE_ADDRESS);
-}
-
 /**
- * Free lease objects
+ * @section Address Allocation
  */
 
-void lease_free_policy(LeasePolicy* policy) {
-    if (policy) {
-        free(policy);
-    }
-}
-
-void lease_free_object(LeasePolicy* policy, LeaseObject* object) {
-    if (policy && object) { // object depends upon policy
-        if (object->address && policy->contract == LEASE_CONTRACT_OWNED) {
-            free(object->address); // policy determines freedom
-        }
-        free(object);
-    }
-}
-
-void lease_free_tenant(LeaseTenant* tenant) {
-    if (tenant) {
-        lease_free_object(tenant->policy, tenant->object);
-        lease_free_policy(tenant->policy);
-        free(tenant);
-    }
-}
-
-void lease_free_owner(LeaseOwner* owner) {
-    if (owner) {
-        for (uint64_t i = 0; i < owner->size; i++) {
-            HashTableEntry* entry = &owner->entries[i];
-            if (!entry || !entry->key || !entry->value) {
-                continue; // Skip empty or invalid entries
-            }
-
-            LeaseTenant* tenant = (LeaseTenant*) entry->value;
-            if (tenant) {
-                lease_free_tenant(tenant);
-            }
-        }
-
-        hash_table_free(owner);
-    }
-}
-
-/**
- * Lease operations
- */
-
-void* lease_address(LeaseOwner* owner, LeasePolicy* policy, size_t size, size_t alignment) {
+void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment) {
     if (!owner || size == 0) {
         goto default_error;
     }
@@ -251,6 +255,10 @@ default_error:
     return NULL;
 }
 
+/**
+ * @section String Allocation
+ */
+
 char* lease_string(LeaseOwner* owner, LeasePolicy* policy, const char* source) {
     size_t size = strlen(source);
     char* lease = lease_address(owner, policy, size + 1, alignof(char)); // alloc null char
@@ -263,57 +271,38 @@ char* lease_string(LeaseOwner* owner, LeasePolicy* policy, const char* source) {
     return lease;
 }
 
-LeaseState
-lease_owned(LeaseOwner* owner, LeasePolicy* policy, void* address, size_t size, size_t alignment) {
-    if (!owner || !policy || !address) {
-        return HASH_ERROR;
-    }
+/**
+ * @section Metadata Access
+ */
 
-    if (hash_table_search(owner, address)) {
-        return HASH_KEY_EXISTS;
-    }
-
-    LeaseTenant* tenant = memory_aligned_alloc(sizeof(LeaseTenant), alignof(LeaseTenant));
-    if (!tenant) {
-        return HASH_ERROR;
-    }
-
-    if (!policy) {
-        // Set the default policy access and contract
-        policy = lease_policy_create(LEASE_ACCESS_LOCAL, LEASE_CONTRACT_OWNED);
-        if (!policy) {
-            lease_tenant_free(tenant);
-        }
-    }
-
-    *tenant = (LeaseTenant) {
-        .alignment = alignment,
-        .size = size,
-        .policy = policy,
-        .address = address,
-    };
-
-    if (HASH_SUCCESS != hash_table_insert(owner, address, tenant)) {
-        lease_tenant_free(tenant);
-        return HASH_ERROR;
-    }
-
-    return HASH_SUCCESS;
-}
-
-LeaseTenant* lease_find(LeaseOwner* owner, void* address) {
+LeaseTenant* lease_get_tenant(LeaseOwner* owner, void* address) {
+    if (!owner || !address) return NULL;
     return (LeaseTenant*) hash_table_search(owner, address);
 }
 
-LeaseState lease_policy(LeaseOwner* owner, LeasePolicy policy, void* address) {
-    LeaseTenant* tenant = (LeaseTenant*) hash_table_search(owner, address);
-    if (!tenant) {
-        return HASH_KEY_NOT_FOUND;
-    }
-
-    tenant->policy = policy;
-    return HASH_SUCCESS;
+LeaseObject* lease_get_object(LeaseOwner* owner, void* address) {
+    LeaseTenant* tenant = lease_get_tenant(owner, address);
+    return tenant ? tenant->object : NULL;
 }
+
+LeasePolicy* lease_get_policy(LeaseOwner* owner, void* address) {
+    LeaseTenant* tenant = lease_get_tenant(owner, address);
+    return tenant ? tenant->policy : NULL;
+}
+
+LeaseAccess lease_get_access(LeaseOwner* owner, void* address) {
+    LeasePolicy* policy = lease_get_policy(owner, address);
+    return policy ? policy->access : LEASE_ACCESS_LOCAL; // default fallback
+}
+
+LeaseContract lease_get_contract(LeaseOwner* owner, void* address) {
+    LeasePolicy* policy = lease_get_policy(owner, address);
+    return policy ? policy->contract : LEASE_CONTRACT_BORROWED; // safe fallback
+}
+
+/**
+ * @section Mutation and Transfer
+ */
 
 LeaseState lease_realloc(LeaseOwner* owner, void* address, size_t size, size_t alignment) {
     if (!owner || !address || size == 0 || alignment == 0) {
