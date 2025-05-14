@@ -38,7 +38,7 @@ LeaseOwner* lease_create_owner(size_t capacity) {
 }
 
 LeasePolicy* lease_create_policy(LeaseAccess access, LeaseContract contract) {
-    LeasePolicy* policy = memory_aligned_size(sizeof(LeasePolicy), alignof(LeasePolicy));
+    LeasePolicy* policy = memory_aligned_alloc(sizeof(LeasePolicy), alignof(LeasePolicy));
     if (!policy) {
         return NULL;
     }
@@ -56,7 +56,7 @@ LeaseObject* lease_create_object(void* address, size_t size, size_t alignment) {
         return NULL;
     }
 
-    LeaseObject* object = memory_aligned_size(sizeof(LeaseObject), alignof(LeaseObject));
+    LeaseObject* object = memory_aligned_alloc(sizeof(LeaseObject), alignof(LeaseObject));
     if (!object) {
         return NULL;
     }
@@ -75,7 +75,7 @@ LeaseTenant* lease_create_tenant(LeasePolicy* policy, LeaseObject* object) {
         return NULL;
     }
 
-    LeaseTenant* tenant = memory_aligned_size(sizeof(LeaseTenant), alignof(LeaseTenant));
+    LeaseTenant* tenant = memory_aligned_alloc(sizeof(LeaseTenant), alignof(LeaseTenant));
     if (!tenant) {
         return NULL;
     }
@@ -137,32 +137,29 @@ void lease_free_tenant(LeaseTenant* tenant) {
  * @section Tenant Allocation
  */
 
-LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment) {
-    if (size == 0 || alignment == 0) {
-        return NULL;
-    }
-
-    LeasePolicy* policy = lease_create_policy(LEASE_ACCESS_LOCAL, LEASE_CONTRACT_OWNED);
+static LeaseTenant* lease_alloc_internal(
+    LeaseAccess access,
+    LeaseContract contract,
+    void* address,
+    size_t size,
+    size_t alignment
+) {
+    LeasePolicy* policy = lease_create_policy(access, contract);
     if (!policy) {
-        return NULL;
-    }
-
-    void* address = memory_aligned_alloc(size, alignment);
-    if (!address) {
-        lease_free_policy(policy);
         return NULL;
     }
 
     LeaseObject* object = lease_create_object(address, size, alignment);
     if (!object) {
-        free(address);
+        if (policy->contract == LEASE_CONTRACT_OWNED) {
+            free(address);
+        }
         lease_free_policy(policy);
         return NULL;
     }
 
     LeaseTenant* tenant = lease_create_tenant(policy, object);
     if (!tenant) {
-        free(address);
         lease_free_object(policy, object);
         lease_free_policy(policy);
         return NULL;
@@ -171,31 +168,37 @@ LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment) {
     return tenant;
 }
 
+LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment) {
+    if (size == 0 || alignment == 0) {
+        return NULL;
+    }
+
+    void* address = memory_aligned_alloc(size, alignment);
+    if (!address) {
+        return NULL;
+    }
+
+    return (LeaseTenant*) lease_alloc_internal(
+        LEASE_ACCESS_LOCAL,
+        LEASE_CONTRACT_OWNED,
+        address,
+        size,
+        alignment
+    );
+}
+
 LeaseTenant* lease_alloc_borrowed_tenant(void* address, size_t size, size_t alignment) {
-    if (!address || size == 0) {
+    if (!address || size == 0 || alignment == 0) {
         return NULL;
     }
 
-    LeasePolicy* policy = lease_create_policy(LEASE_ACCESS_LOCAL, LEASE_CONTRACT_BORROWED);
-    if (!policy) {
-        return NULL;
-    }
-
-    LeaseObject* object = lease_create_object(address, size, alignment);
-    if (!object) {
-        lease_free_policy(policy);
-        return NULL;
-    }
-
-    LeaseTenant* tenant = lease_create_tenant(policy, object);
-    if (!tenant) {
-        // User claimed ownership of address
-        lease_free_object(policy, object);
-        lease_free_policy(policy);
-        return NULL;
-    }
-
-    return tenant;
+    return (LeaseTenant*) lease_alloc_internal(
+        LEASE_ACCESS_LOCAL,
+        LEASE_CONTRACT_BORROWED,
+        address,
+        size,
+        alignment
+    );
 }
 
 LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignment) {
@@ -203,25 +206,13 @@ LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignm
         return NULL;
     }
 
-    LeasePolicy* policy = lease_create_policy(LEASE_ACCESS_STATIC, LEASE_CONTRACT_STATIC);
-    if (!policy) {
-        return NULL;
-    }
-
-    LeaseObject* object = lease_create_object(address, size, alignment);
-    if (!object) {
-        lease_free_policy(policy);
-        return NULL;
-    }
-
-    LeaseTenant* tenant = lease_create_tenant(policy, object);
-    if (!tenant) {
-        lease_free_object(policy, object);
-        lease_free_policy(policy);
-        return NULL;
-    }
-
-    return tenant;
+    return (LeaseTenant*) lease_alloc_internal(
+        LEASE_ACCESS_STATIC,
+        LEASE_CONTRACT_STATIC,
+        address,
+        size,
+        alignment
+    );
 }
 
 /**
@@ -229,46 +220,43 @@ LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignm
  */
 
 void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment) {
-    if (!owner || size == 0) {
-        goto default_error;
+    if (!owner || size == 0 || alignment == 0) {
+        return NULL;
     }
 
-    LeaseTenant* tenant = lease_tenant_create(owner, policy, size, alignment);
+    LeaseTenant* tenant = lease_alloc_owned_tenant(size, alignment);
     if (!tenant) {
-        goto default_error;
+        return NULL;
     }
 
-    const void* address = tenant->address;
+    const void* address = tenant->object->address;
     if (!address) {
-        goto tenant_error;
+        lease_free_tenant(tenant);
+        return NULL;
     }
 
     if (HASH_SUCCESS != hash_table_insert(owner, address, tenant)) {
-        goto tenant_error;
+        lease_free_tenant(tenant);
+        return NULL;
     }
 
     return address;
-
-tenant_error:
-    lease_tenant_free(tenant);
-default_error:
-    return NULL;
 }
 
 /**
  * @section String Allocation
  */
 
-char* lease_string(LeaseOwner* owner, LeasePolicy* policy, const char* source) {
-    size_t size = strlen(source);
-    char* lease = lease_address(owner, policy, size + 1, alignof(char)); // alloc null char
-    if (!lease) {
+char* lease_alloc_owned_string(LeaseOwner* owner, const char* address) {
+    size_t size = strlen(address);
+    char* string = lease_alloc_owned_address(owner, size + 1, alignof(char));
+    if (!string) {
         return NULL; // Alloc failed
     }
 
-    memcpy(lease, source, size); // copy up to size bytes
-    lease[size] = '\0'; // null terminate string
-    return lease;
+    memcpy(string, address, size); // copy up to size bytes
+    string[size] = '\0'; // null terminate string
+    return string;
 }
 
 /**
@@ -276,7 +264,9 @@ char* lease_string(LeaseOwner* owner, LeasePolicy* policy, const char* source) {
  */
 
 LeaseTenant* lease_get_tenant(LeaseOwner* owner, void* address) {
-    if (!owner || !address) return NULL;
+    if (!owner || !address) {
+        return NULL;
+    }
     return (LeaseTenant*) hash_table_search(owner, address);
 }
 
