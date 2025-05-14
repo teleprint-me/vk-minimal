@@ -12,6 +12,7 @@ transparency:
 - **CMake** — For project configuration and build management.
 - **PThreads** — Enables multi-threaded execution.
 - **libc** — Standard C library for system-level utilities.
+- **GLSL** — High-level shading language used to write shaders.
 - **SPIR-V** — Portable shader intermediate representation.
 - **Vulkan** — Cross-platform GPU API for compute workloads.
 
@@ -65,6 +66,7 @@ chmod +x vk.sh && ./vk.sh
 
 ### Vulkan + SPIR-V Specs
 
+- [GLSL Spec](https://registry.khronos.org/OpenGL/#spec)
 - [SPIR-V Spec](https://registry.khronos.org/SPIR-V/#spec)
 - [Vulkan Spec](https://registry.khronos.org/vulkan/#apispecs)
 
