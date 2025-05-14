@@ -138,11 +138,7 @@ void lease_free_tenant(LeaseTenant* tenant) {
  */
 
 static LeaseTenant* lease_alloc_internal(
-    LeaseAccess access,
-    LeaseContract contract,
-    void* address,
-    size_t size,
-    size_t alignment
+    LeaseAccess access, LeaseContract contract, void* address, size_t size, size_t alignment
 ) {
     LeasePolicy* policy = lease_create_policy(access, contract);
     if (!policy) {
@@ -179,11 +175,7 @@ LeaseTenant* lease_alloc_owned_tenant(size_t size, size_t alignment) {
     }
 
     return (LeaseTenant*) lease_alloc_internal(
-        LEASE_ACCESS_LOCAL,
-        LEASE_CONTRACT_OWNED,
-        address,
-        size,
-        alignment
+        LEASE_ACCESS_LOCAL, LEASE_CONTRACT_OWNED, address, size, alignment
     );
 }
 
@@ -193,11 +185,7 @@ LeaseTenant* lease_alloc_borrowed_tenant(void* address, size_t size, size_t alig
     }
 
     return (LeaseTenant*) lease_alloc_internal(
-        LEASE_ACCESS_LOCAL,
-        LEASE_CONTRACT_BORROWED,
-        address,
-        size,
-        alignment
+        LEASE_ACCESS_LOCAL, LEASE_CONTRACT_BORROWED, address, size, alignment
     );
 }
 
@@ -207,11 +195,7 @@ LeaseTenant* lease_alloc_static_tenant(void* address, size_t size, size_t alignm
     }
 
     return (LeaseTenant*) lease_alloc_internal(
-        LEASE_ACCESS_STATIC,
-        LEASE_CONTRACT_STATIC,
-        address,
-        size,
-        alignment
+        LEASE_ACCESS_STATIC, LEASE_CONTRACT_STATIC, address, size, alignment
     );
 }
 
@@ -232,6 +216,44 @@ void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment
     const void* address = tenant->object->address;
     if (!address) {
         lease_free_tenant(tenant);
+        return NULL;
+    }
+
+    if (HASH_SUCCESS != hash_table_insert(owner, address, tenant)) {
+        lease_free_tenant(tenant);
+        return NULL;
+    }
+
+    return address;
+}
+
+void* lease_alloc_borrowed_address(
+    LeaseOwner* owner, void* address, size_t size, size_t alignment
+) {
+    if (!owner || !address || size == 0 || alignment == 0) {
+        return NULL;
+    }
+
+    LeaseTenant* tenant = lease_alloc_borrowed_tenant(address, size, alignment);
+    if (!tenant) {
+        return NULL;
+    }
+
+    if (HASH_SUCCESS != hash_table_insert(owner, address, tenant)) {
+        lease_free_tenant(tenant);
+        return NULL;
+    }
+
+    return address;
+}
+
+void* lease_alloc_static_address(LeaseOwner* owner, void* address, size_t size, size_t alignment) {
+    if (!owner || !address || size == 0 || alignment == 0) {
+        return NULL;
+    }
+
+    LeaseTenant* tenant = lease_alloc_static_tenant(address, size, alignment);
+    if (!tenant) {
         return NULL;
     }
 
