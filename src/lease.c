@@ -22,6 +22,7 @@
  * with explicit control over lifetime and tracking of dynamic memory.
  */
 
+#include "logger.h"
 #include "memory.h"
 #include "lease.h"
 
@@ -412,4 +413,83 @@ LeaseState lease_terminate(LeaseOwner* owner, void* address) {
     }
 
     return state; // return hash table state
+}
+
+/**
+ * @section Debugging
+ */
+
+static inline const char* lease_debug_internal_access(const LeasePolicy* policy) {
+    if (!policy) {
+        return "LEASE_ACCESS_NULL";
+    }
+
+    switch (policy->access) {
+        case LEASE_ACCESS_GLOBAL:
+            return "LEASE_ACCESS_GLOBAL";
+        case LEASE_ACCESS_LOCAL:
+            return "LEASE_ACCESS_LOCAL";
+        case LEASE_ACCESS_STATIC:
+            return "LEASE_ACCESS_STATIC";
+        default:
+            return "LEASE_ACCESS_UNKNOWN";
+    }
+}
+
+static inline const char* lease_debug_internal_contract(const LeasePolicy* policy) {
+    if (!policy) {
+        return "LEASE_CONTRACT_NULL";
+    }
+
+    switch (policy->contract) {
+        case LEASE_CONTRACT_OWNED:
+            return "LEASE_CONTRACT_OWNED";
+        case LEASE_CONTRACT_BORROWED:
+            return "LEASE_CONTRACT_BORROWED";
+        case LEASE_CONTRACT_STATIC:
+            return "LEASE_CONTRACT_STATIC";
+        default:
+            return "LEASE_CONTRACT_UNKNOWN";
+    }
+}
+
+void lease_debug_tenant(LeaseTenant* tenant) {
+    if (!tenant) {
+        return;
+    }
+
+    LeasePolicy* policy = tenant->policy;
+    LeaseObject* object = tenant->object;
+    if (!policy || !object) {
+        return;
+    }
+
+    LOG_INFO("--- Lease ---");
+    LOG_INFO("[Tenant] address=%p", tenant);
+
+    const char* access = lease_debug_internal_access(policy);
+    const char* contract = lease_debug_internal_contract(policy);
+    LOG_INFO("[Policy] access=%s, contract=%s", access, contract);
+
+    const size_t alignment = object->alignment;
+    const size_t size = object->size;
+    const void* const address = object->address;
+    LOG_INFO("[Object] alignment=%zu, size=%zu, address=%p", alignment, size, address);
+}
+
+void lease_debug_owner(LeaseOwner* owner) {
+    if (owner) {
+        LOG_INFO("[LeaseOwner] address=%p", owner);
+        for (uint64_t i = 0; i < owner->size; i++) {
+            HashTableEntry* entry = &owner->entries[i];
+            if (!entry || !entry->key || !entry->value) {
+                continue; // Skip empty or invalid entries
+            }
+
+            LeaseTenant* tenant = (LeaseTenant*) entry->value;
+            if (tenant) {
+                lease_debug_tenant(tenant);
+            }
+        }
+    }
 }
