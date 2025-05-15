@@ -163,7 +163,7 @@ static HashTableState hash_table_resize_internal(HashTable* table, uint64_t new_
         HashTableEntry* entry = &old_entries[i];
         if (entry->key) {
             HashTableState state = hash_table_insert_internal(table, entry->key, entry->value);
-            if (state != HASH_SUCCESS) {
+            if (HASH_SUCCESS != state) {
                 LOG_ERROR("Failed to rehash key during resize.");
                 free(new_entries);
                 table->entries = old_entries;
@@ -177,6 +177,62 @@ static HashTableState hash_table_resize_internal(HashTable* table, uint64_t new_
     table->count = rehashed_count;
     free(old_entries);
     return HASH_SUCCESS;
+}
+
+static HashTableState hash_table_delete_internal(HashTable* table, const void* key) {
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for delete internal.");
+        return HASH_ERROR;
+    }
+
+    if (!key) {
+        LOG_ERROR("Key is NULL.");
+        return HASH_ERROR;
+    }
+
+    for (uint64_t i = 0; i < table->size; i++) {
+        uint64_t index = table->hash(key, table->size, i);
+        HashTableEntry* entry = &table->entries[index];
+
+        if (!entry->key) {
+            return HASH_KEY_NOT_FOUND; // Stop probing
+        }
+
+        if (0 == table->compare(entry->key, key)) {
+            // Delete entry
+            entry->key = NULL;
+            entry->value = NULL;
+            table->count--;
+
+            // Rehash the remainder of the probe sequence
+            for (uint64_t j = i + 1; j < table->size; j++) {
+                uint64_t rehash_index = table->hash(key, table->size, j);
+                HashTableEntry* rehash_entry = &table->entries[rehash_index];
+
+                if (!rehash_entry->key) {
+                    break;
+                }
+
+                void* rehash_key = rehash_entry->key;
+                void* rehash_value = rehash_entry->value;
+
+                rehash_entry->key = NULL;
+                rehash_entry->value = NULL;
+                table->count--;
+
+                // Reinsert into new position
+                HashTableState state = hash_table_insert_internal(table, rehash_key, rehash_value);
+                if (HASH_SUCCESS != state) {
+                    LOG_ERROR("Failed to reinsert during delete.");
+                    return HASH_ERROR;
+                }
+            }
+
+            return HASH_SUCCESS;
+        }
+    }
+
+    return HASH_KEY_NOT_FOUND;
 }
 
 /**
@@ -229,56 +285,21 @@ HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
 }
 
 HashTableState hash_table_delete(HashTable* table, const void* key) {
-    if (!table) {
-        LOG_ERROR("Table is NULL.");
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for delete.");
         return HASH_ERROR;
     }
+
     if (!key) {
         LOG_ERROR("Key is NULL.");
         return HASH_ERROR;
     }
 
-    for (uint64_t i = 0; i < table->size; i++) {
-        uint64_t index = table->hash(key, table->size, i);
-        HashTableEntry* entry = &table->entries[index];
-
-        if (!entry->key) {
-            // Key not found, stop probing
-            return HASH_KEY_NOT_FOUND;
-        }
-
-        if (table->compare(entry->key, key) == 0) {
-            // Key found, mark as deleted
-            entry->key = NULL;
-            entry->value = NULL;
-            table->count--;
-
-            // Rehash subsequent entries in the probe sequence
-            for (uint64_t j = i + 1; j < table->size; j++) {
-                uint64_t rehash_index = table->hash(key, table->size, j);
-                HashTableEntry* rehash_entry = &table->entries[rehash_index];
-
-                if (!rehash_entry->key) {
-                    // Stop rehashing when an empty slot is reached
-                    break;
-                }
-
-                void* rehash_key = rehash_entry->key;
-                void* rehash_value = rehash_entry->value;
-                rehash_entry->key = NULL;
-                rehash_entry->value = NULL;
-                table->count--;
-
-                // Reinsert the entry to its correct position in the table
-                hash_table_insert(table, rehash_key, rehash_value);
-            }
-
-            return HASH_SUCCESS;
-        }
-    }
-
-    LOG_DEBUG("Key not found: %s.", (char*) key);
-    return HASH_KEY_NOT_FOUND; // Key not found after full probing
+    HashTableState state;
+    pthread_mutex_lock(&table->thread_lock);
+    state = hash_table_delete_internal(table, key);
+    pthread_mutex_unlock(&table->thread_lock);
+    return state;
 }
 
 HashTableState hash_table_clear(HashTable* table) {
