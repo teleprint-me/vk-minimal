@@ -46,6 +46,13 @@ enable_testing()
 # add_subdirectory(tests)
 add_subdirectory(examples)
 
+# Custom doc target for generating docs
+add_custom_target(doc
+    COMMAND doxygen ${CMAKE_SOURCE_DIR}/doxy.conf
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Generating API documentation with Doxygen"
+)
+
 # Custom clean target for removing generated files
 add_custom_target(clean_all
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_BINARY_DIR}/bin ${CMAKE_BINARY_DIR}/lib
