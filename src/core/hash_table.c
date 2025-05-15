@@ -199,20 +199,20 @@ HashTableState hash_table_insert(HashTable* table, const void* key, void* value)
         return HASH_ERROR;
     }
 
-    HashTableState result;
+    HashTableState state;
     pthread_mutex_lock(&table->thread_lock);
 
     if ((double) table->count / table->size > 0.75) {
         if (HASH_SUCCESS != hash_table_resize_internal(table, table->size * 2)) {
-            result = HASH_ERROR;
+            state = HASH_ERROR;
             goto exit;
         }
     }
-    result = hash_table_insert_internal(table, key, value);
+    state = hash_table_insert_internal(table, key, value);
 
 exit:
     pthread_mutex_unlock(&table->thread_lock);
-    return result;
+    return state;
 }
 
 HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
@@ -222,10 +222,10 @@ HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
     }
 
     pthread_mutex_lock(&table->thread_lock);
-    HashTableState result = hash_table_resize_internal(table, new_size);
+    HashTableState state = hash_table_resize_internal(table, new_size);
     pthread_mutex_unlock(&table->thread_lock);
 
-    return result;
+    return state;
 }
 
 HashTableState hash_table_delete(HashTable* table, const void* key) {
