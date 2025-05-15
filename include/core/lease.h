@@ -25,7 +25,7 @@
 #ifndef LEASE_ALLOCATOR_H
 #define LEASE_ALLOCATOR_H
 
-#include "hash_table.h"
+#include "core/hash_table.h"
 
 #include <stddef.h>
 #include <stdint.h>

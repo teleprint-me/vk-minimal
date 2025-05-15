@@ -1,6 +1,6 @@
 // src/shader.c
-#include "logger.h"
-#include "shader.h"
+#include "core/logger.h"
+#include "vk/shader.h"
 
 #include <stdio.h>
 #include <stdlib.h>

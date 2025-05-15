@@ -2,7 +2,7 @@
  * @file include/memory.c
  */
 
-#include "memory.h"
+#include "core/memory.h"
 
 void* memory_aligned_alloc(size_t size, size_t alignment) {
     if (alignment < sizeof(void*)) {

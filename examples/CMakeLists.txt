@@ -1,6 +1,6 @@
 set(EXAMPLES
-    "cpu"
-    "vk"
+    "pt" # POSIX Threads
+    "vk" # Vulkan
 )
 
 set(INPUT_DIR ${PROJECT_SOURCE_DIR}/examples)

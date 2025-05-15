@@ -32,12 +32,13 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Add library
 add_library(vk-minimal SHARED
-    "src/logger.c"
-    "src/unit_test.c"
-    "src/memory.c"
-    "src/hash_table.c"
-    "src/lease.c"
-    "src/shader.c"
+    "src/core/logger.c"
+    "src/core/memory.c"
+    "src/core/unit_test.c"
+    "src/core/hash_table.c"
+    "src/core/lease.c"
+    "src/vk/alloc.c"
+    "src/vk/shader.c"
 )
 target_include_directories(vk-minimal PUBLIC include)
 target_link_libraries("vk-minimal" PUBLIC m rt vulkan)

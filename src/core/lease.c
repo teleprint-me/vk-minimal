@@ -22,9 +22,9 @@
  * with explicit control over lifetime and tracking of dynamic memory.
  */
 
-#include "logger.h"
-#include "memory.h"
-#include "lease.h"
+#include "core/logger.h"
+#include "core/memory.h"
+#include "core/lease.h"
 
 #include <stdlib.h>
 #include <string.h>

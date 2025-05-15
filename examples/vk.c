@@ -1,109 +1,22 @@
 // examples/vk.c
-#include "logger.h"
-#include "lease.h"
+#include "core/logger.h"
+#include "core/lease.h"
+#include "vk/alloc.h"
 
 #include <vulkan/vulkan.h>
 
+#include <stdalign.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-void* VKAPI_CALL vk_lease_alloc(
-    void* pUserData,
-    size_t size,
-    size_t alignment,
-    VkSystemAllocationScope scope
-) {
-    (void) alignment;
-    LeaseOwner* lease = (LeaseOwner*) pUserData;
-    if (!lease) return NULL;
-    LeasePolicy policy = {
-        .type = LEASE_CONTRACT_OWNED,
-        .scope = scope == VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE ? LEASE_ACCESS_GLOBAL : LEASE_ACCESS_LOCAL
-    };
-
-    void* ptr = lease_address(lease, policy, size);
-    if (!ptr) return NULL;
-    LOG_INFO("[VK_ALLOC] %p (%zu bytes)", ptr, size);
-    return ptr;
-}
-
-void* VKAPI_CALL vk_lease_realloc(
-    void* pUserData,
-    void* pOriginal,
-    size_t size,
-    size_t alignment,
-    VkSystemAllocationScope scope
-) {
-    (void) alignment;
-    (void) scope;
-    LeaseOwner* lease = (LeaseOwner*) pUserData;
-    LeaseState state = lease_realloc(lease, pOriginal, size);
-    if (state != HASH_SUCCESS) {
-        return NULL;
-    }
-
-    LeaseTenant* tenant = lease_find(lease, pOriginal);
-    if (!tenant) return NULL;
-    LOG_INFO("[VK_REALLOC] %p → %p (%zu bytes)", pOriginal, tenant->address, size);
-    return tenant->address;
-}
-
-void VKAPI_CALL vk_lease_free(void* pUserData, void* pMemory) {
-    LeaseOwner* lease = (LeaseOwner*) pUserData;
-    if (!pMemory) return;
-
-    LeaseTenant* tenant = lease_find(lease, pMemory);
-    if (tenant && tenant->policy.type == LEASE_CONTRACT_OWNED) {
-        lease_terminate(lease, pMemory);
-        LOG_INFO("[VK_FREE] %p", pMemory);
-    } else {
-        LOG_ERROR("[VK_FREE] Attempted to free untracked or borrowed memory at %p", pMemory);
-    }
-}
-
-void VKAPI_CALL vk_lease_internal_alloc(
-    void* pUserData,
-    size_t size,
-    VkInternalAllocationType type,
-    VkSystemAllocationScope scope
-) {
-    (void) pUserData;
-    LOG_INFO("[VK_INTERNAL_ALLOC] Size: %zu Type: %d Scope: %d", size, type, scope);
-}
-
-void VKAPI_CALL vk_lease_internal_free(
-    void* pUserData,
-    size_t size,
-    VkInternalAllocationType type,
-    VkSystemAllocationScope scope
-) {
-    (void) pUserData;
-    LOG_INFO("[VK_INTERNAL_FREE] Size: %zu Type: %d Scope: %d", size, type, scope);
-}
-
-VkAllocationCallbacks VKAPI_CALL vk_make_lease_callbacks(LeaseOwner* owner) {
-    return (VkAllocationCallbacks) {
-        .pUserData = owner,  // or pass this dynamically
-        .pfnAllocation = vk_lease_alloc,
-        .pfnReallocation = vk_lease_realloc,
-        .pfnFree = vk_lease_free,
-        .pfnInternalAllocation = vk_lease_internal_alloc,
-        .pfnInternalFree = vk_lease_internal_free
-    };    
-}
-
 int main(void) {
     /**
-     * Lease Allocator to sanely track memory allocations.
+     * Lease Allocator for sanely tracking memory allocations.
      */
-    
-    LeasePolicy g_lease_policy = {
-        .type = LEASE_CONTRACT_OWNED,
-        .scope = LEASE_ACCESS_LOCAL
-    };
-    LeaseOwner* g_lease_owner = lease_create(1024); // local
-    LeaseOwner* vk_lease_owner = lease_create(2048); // scoped
-    VkAllocationCallbacks vk_alloc = vk_make_lease_callbacks(vk_lease_owner);
+
+    LeaseOwner* vk_lease_owner = lease_create_owner(1024); // local
+    LeaseOwner* vk_alloc_owner = lease_create_owner(2048); // scoped
+    VkAllocationCallbacks vk_alloc = vk_lease_callbacks(vk_alloc_owner);
 
     // Result codes and handles
     VkResult result;
@@ -163,10 +76,10 @@ int main(void) {
     }
 
     // Track the allocated device list
-    physical_devices = lease_address(
-            g_lease_owner,
-            g_lease_policy,
-            sizeof(VkPhysicalDevice) * physical_device_count
+    physical_devices = lease_alloc_owned_address(
+        vk_lease_owner,
+        sizeof(VkPhysicalDevice) * physical_device_count,
+        alignof(VkPhysicalDevice)
     );
     if (!physical_devices) {
         LOG_ERROR("Failed to allocate physical device list.");
@@ -265,11 +178,7 @@ int main(void) {
     rewind(file);
 
     // Track the buffer because Vulkan won't free this later on for us.
-    char* code = (char*) lease_address(
-        g_lease_owner,
-        g_lease_policy,
-        (size_t) length + 1
-    );
+    char* code = (char*) lease_alloc_owned_address(vk_lease_owner, (size_t) length + 1, alignof(char));
     if (!code) {
         fclose(file);
         LOG_ERROR("Failed to allocate memory for shader file");
@@ -313,8 +222,8 @@ cleanup_device:
 cleanup_instance:
     vkDestroyInstance(instance, NULL);
 cleanup_lease:
-    lease_free(g_lease_owner);
     lease_free(vk_lease_owner);
+    lease_free(vk_alloc_owner);
 
     LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;

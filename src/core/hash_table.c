@@ -13,8 +13,8 @@
  * - Return a non-zero value for inequality.
  */
 
-#include "logger.h"
-#include "hash_table.h"
+#include "core/logger.h"
+#include "core/hash_table.h"
 
 #include <string.h>
 

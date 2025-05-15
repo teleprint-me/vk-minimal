@@ -17,6 +17,7 @@
 #define HASH_TABLE_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 // ---------------------- Enumerations ----------------------
 
@@ -64,6 +65,7 @@ typedef struct HashTable {
     HashTableEntry* entries; /**< Array of hash entries. */
     uint64_t (*hash)(const void* key, uint64_t size, uint64_t i); /**< Hash function. */
     int (*compare)(const void* key1, const void* key2); /**< Comparison function. */
+    pthread_mutex_t thread_lock; // 🔒 New field for locking
 } HashTable;
 
 // -------------------- Hash Life-cycle --------------------

@@ -4,7 +4,8 @@
  * @file src/unit_test.c
  */
 
-#include "unit_test.h"
+#include "core/logger.h"
+#include "core/unit_test.h"
 
 int run_unit_tests(TestContext* context, TestLogic logic, TestCallback callback) {
     if (!context || !context->test_cases || !logic) {
