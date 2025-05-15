@@ -101,8 +101,7 @@ void hash_table_free(HashTable* table) {
  * @section Internal Functions
  */
 
-static inline HashTableState
-hash_table_insert_internal(HashTable* table, const void* key, void* value) {
+static HashTableState hash_table_insert_internal(HashTable* table, const void* key, void* value) {
     if (!table || !table->entries || table->size == 0) {
         LOG_ERROR("Invalid table for insert internal.");
         return HASH_ERROR;
@@ -134,7 +133,7 @@ hash_table_insert_internal(HashTable* table, const void* key, void* value) {
     return HASH_TABLE_FULL;
 }
 
-static inline HashTableState hash_table_resize_internal(HashTable* table, uint64_t new_size) {
+static HashTableState hash_table_resize_internal(HashTable* table, uint64_t new_size) {
     if (!table || !table->entries || table->size == 0) {
         LOG_ERROR("Invalid table for resize.");
         return HASH_ERROR;
