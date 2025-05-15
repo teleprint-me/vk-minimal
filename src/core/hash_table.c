@@ -57,11 +57,23 @@ HashTable* hash_table_create(uint64_t initial_size, HashTableType key_type) {
         return NULL;
     }
 
+    // Initialize the mutex for thread safety
+    int error_code = pthread_mutex_init(&table->thread_lock, NULL);
+    if (0 != error_code) {
+        LOG_ERROR("Failed to initialize mutex with error: %d", error_code);
+        free(table->entries);
+        free(table);
+        return NULL;
+    }
+
     return table;
 }
 
 void hash_table_free(HashTable* table) {
     if (table) {
+        // Destroy the mutex before freeing memory
+        pthread_mutex_destroy(&table->thread_lock);
+
         if (table->entries) {
             free(table->entries);
         }
@@ -73,23 +85,31 @@ void hash_table_free(HashTable* table) {
 // -------------------- Hash Functions --------------------
 
 HashTableState hash_table_insert(HashTable* table, const void* key, void* value) {
+    HashTableState result;
+
     if (!table) {
         LOG_ERROR("Table is NULL.");
         return HASH_ERROR;
     }
+
+    pthread_mutex_lock(&table->thread_lock);
+
     if (!key) {
         LOG_ERROR("Key is NULL.");
-        return HASH_ERROR;
+        result = HASH_ERROR;
+        goto exit;
     }
     if (!value) {
         LOG_ERROR("Value is NULL.");
-        return HASH_ERROR;
+        result = HASH_ERROR;
+        goto exit;
     }
 
     // Resize if the load factor exceeds 0.75
     if ((double) table->count / table->size > 0.75) {
         if (hash_table_resize(table, table->size * 2) != HASH_SUCCESS) {
-            return HASH_ERROR;
+            result = HASH_ERROR;
+            goto exit;
         }
     }
 
@@ -100,15 +120,21 @@ HashTableState hash_table_insert(HashTable* table, const void* key, void* value)
             table->entries[index].key = (void*) key;
             table->entries[index].value = value;
             table->count++;
-            return HASH_SUCCESS;
+            result = HASH_SUCCESS;
+            goto exit;
         } else if (table->compare(table->entries[index].key, key) == 0) { // Duplicate key
             LOG_DEBUG("Found duplicate key during comparison.");
-            return HASH_KEY_EXISTS;
+            result = HASH_KEY_EXISTS;
+            goto exit;
         }
     }
 
     LOG_ERROR("Hash table overflow.");
-    return HASH_TABLE_FULL;
+    result = HASH_TABLE_FULL;
+
+exit:
+    pthread_mutex_unlock(&table->thread_lock);
+    return result;
 }
 
 HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
