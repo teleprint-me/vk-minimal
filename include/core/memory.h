@@ -1,7 +1,7 @@
 /**
  * Copyright © 2024 Austin Berrio
  *
- * @file include/memory.h
+ * @file include/core/memory.h
  * @brief Utility functions for computing memory alignment and padding.
  *
  * This module provides functions to check for power-of-two alignments,

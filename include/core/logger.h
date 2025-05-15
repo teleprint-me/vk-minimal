@@ -1,7 +1,7 @@
 /**
  * Copyright © 2024 Austin Berrio
  *
- * @file include/logger.h
+ * @file include/core/logger.h
  * @brief A simple and lightweight logger written in pure C
  *
  * `logger.c` provides a minimal logging library that allows you to log

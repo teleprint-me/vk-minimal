@@ -1,5 +1,5 @@
 /**
- * @file include/memory.c
+ * @file src/core/memory.c
  */
 
 #include "core/memory.h"

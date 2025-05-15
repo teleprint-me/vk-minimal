@@ -1,7 +1,7 @@
 /**
  * Copyright © 2024 Austin Berrio
  *
- * @file include/hash_table.h
+ * @file include/core/hash_table.h
  * @brief Minimalistic hash table implementation providing mapping between integers and strings.
  *
  * The Hash Interface is designed to provide a minimal mapping between integers and strings,

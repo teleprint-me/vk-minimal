@@ -1,4 +1,8 @@
-// include/shader.h
+/**
+ * @file include/vk/alloc.h
+ * @brief A wrapper for interfacing with SPIR-V Compute Shaders.
+ */
+
 #ifndef SHADER_H
 #define SHADER_H
 

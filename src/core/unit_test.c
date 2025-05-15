@@ -1,7 +1,7 @@
 /**
  * Copyright © 2024 Austin Berrio
  *
- * @file src/unit_test.c
+ * @file src/core/unit_test.c
  */
 
 #include "core/logger.h"
