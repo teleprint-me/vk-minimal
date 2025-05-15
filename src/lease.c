@@ -465,7 +465,7 @@ void lease_debug_tenant(LeaseTenant* tenant) {
     }
 
     LOG_INFO("--- Lease ---");
-    LOG_INFO("[Tenant] address=%p", tenant);
+    LOG_INFO("[Tenant] policy=%p, object=%p, tenant=%p", policy, object, tenant);
 
     const char* access = lease_debug_internal_access(policy);
     const char* contract = lease_debug_internal_contract(policy);
