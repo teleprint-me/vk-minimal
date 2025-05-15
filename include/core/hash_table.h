@@ -19,7 +19,9 @@
 #include <stdint.h>
 #include <pthread.h>
 
-// ---------------------- Enumerations ----------------------
+/**
+ * @section Enumerations
+ */
 
 /**
  * @enum HashTableState
@@ -43,7 +45,9 @@ typedef enum HashTableType {
     HASH_TYPE_ADDRESS /**< Keys are addresses. */
 } HashTableType;
 
-// ---------------------- Structures ----------------------
+/**
+ * @section Structures
+ */
 
 /**
  * @struct HashTableEntry
@@ -68,7 +72,9 @@ typedef struct HashTable {
     pthread_mutex_t thread_lock; /**< Lock threads between processes */
 } HashTable;
 
-// -------------------- Hash Life-cycle --------------------
+/**
+ * @section Hash Life-cycle
+ */
 
 /**
  * @brief Creates a new hash table.
@@ -86,7 +92,9 @@ HashTable* hash_table_create(uint64_t initial_size, HashTableType key_type);
  */
 void hash_table_free(HashTable* table);
 
-// -------------------- Hash Functions --------------------
+/**
+ * @section Hash Functions
+ */
 
 /**
  * @brief Inserts a key-value pair into the hash table.
@@ -133,7 +141,9 @@ HashTableState hash_table_clear(HashTable* table);
  */
 void* hash_table_search(HashTable* table, const void* key);
 
-// ------------------- Hash Integers -------------------
+/**
+ * @section Hash Integers
+ */
 
 /**
  * @brief Hash function for integer keys.
@@ -163,7 +173,9 @@ int hash_integer_compare(const void* key1, const void* key2);
  */
 int32_t* hash_integer_search(HashTable* table, const void* key);
 
-// ------------------- Hash Strings -------------------
+/**
+ * @section Hash Strings
+ */
 
 /**
  * @brief Hash function for string keys (DJB2 algorithm).
@@ -201,7 +213,9 @@ int hash_string_compare(const void* key1, const void* key2);
  */
 char* hash_string_search(HashTable* table, const void* key);
 
-// ------------------- Hash Addresses -------------------
+/**
+ * @section Hash Addresses
+ */
 
 /**
  * @brief Hash function for address keys.
