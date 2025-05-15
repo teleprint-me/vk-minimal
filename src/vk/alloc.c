@@ -3,6 +3,7 @@
  * @brief A wrapper for interfacing with Vulkan Host Memory.
  */
 
+#include "core/logger.h"
 #include "vk/alloc.h"
 
 LeaseAccess VKAPI_CALL vk_lease_access(VkSystemAllocationScope scope) {
@@ -111,7 +112,7 @@ void VKAPI_CALL vk_lease_internal_free(
     LOG_INFO("[VK_INTERNAL_FREE] owner=%p, size=%zu, type=%d, scope=%d", pUserData, size, type, scope);
 }
 
-VkAllocationCallbacks VKAPI_CALL vk_make_lease_callbacks(LeaseOwner* owner) {
+VkAllocationCallbacks VKAPI_CALL vk_lease_callbacks(LeaseOwner* owner) {
     return (VkAllocationCallbacks) {
         .pUserData = owner,  // or pass this dynamically
         .pfnAllocation = vk_lease_alloc,

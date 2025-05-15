@@ -222,8 +222,8 @@ cleanup_device:
 cleanup_instance:
     vkDestroyInstance(instance, NULL);
 cleanup_lease:
-    lease_free(vk_lease_owner);
-    lease_free(vk_alloc_owner);
+    lease_free_owner(vk_lease_owner);
+    lease_free_owner(vk_alloc_owner);
 
     LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;

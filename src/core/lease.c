@@ -225,7 +225,7 @@ void* lease_alloc_owned_address(LeaseOwner* owner, size_t size, size_t alignment
         return NULL;
     }
 
-    return address;
+    return (void*) address;
 }
 
 void* lease_alloc_borrowed_address(
@@ -277,17 +277,17 @@ char* lease_alloc_owned_string(LeaseOwner* owner, const char* address) {
         return NULL; // Alloc failed
     }
 
-    memcpy(string, address, size); // copy up to size bytes
+    memcpy(string, (const void*) address, size); // copy up to size bytes
     string[size] = '\0'; // null terminate string
     return string;
 }
 
 char* lease_alloc_borrowed_string(LeaseOwner* owner, const char* address) {
-    return lease_alloc_borrowed_address(owner, address, strlen(address), alignof(char));
+    return lease_alloc_borrowed_address(owner, (void*) address, strlen(address), alignof(char));
 }
 
 char* lease_alloc_static_string(LeaseOwner* owner, const char* address) {
-    return lease_alloc_static_address(owner, address, strlen(address), alignof(char));
+    return lease_alloc_static_address(owner, (void*) address, strlen(address), alignof(char));
 }
 
 /**
