@@ -2,15 +2,28 @@
  * Copyright © 2024 Austin Berrio
  *
  * @file include/core/hash_table.h
- * @brief Minimalistic hash table implementation providing mapping between integers and strings.
+ * @brief Minimalistic hash table implementation providing mapping between integers, strings, and
+ * memory addresses.
  *
- * The Hash Interface is designed to provide a minimal mapping between integers and strings,
- * much like a dictionary in Python. Users can map strings to integers and integers to strings,
- * supporting insertion, search, deletion, and table clearing.
+ * The Hash Interface is designed to provide a minimal mapping between integers, strings, and memory
+ * addresses, much like a dictionary in Python. Users can map integers, strings, and memory
+ * addresses to other data types, supporting insertion, search, deletion, and table clearing.
  *
  * @note Comparison functions used with the HashTable must:
  * - Return 0 for equality.
  * - Return a non-zero value for inequality.
+ *
+ * @note Thread Safety:
+ * - The hash table is designed to be thread-safe using mutexes. Ensure that all operations on the
+ * hash table are performed within critical sections to avoid race conditions.
+ *
+ * @note Supported Keys:
+ * - Integers (`uint64_t`)
+ * - Strings (`char*`)
+ * - Memory addresses (`uintptr_t`)
+ *
+ * @note Probing:
+ * - Linear probing is used to handle collisions.
  */
 
 #ifndef HASH_TABLE_H
@@ -219,7 +232,7 @@ char* hash_string_search(HashTable* table, const void* key);
 
 /**
  * @brief Hash function for address keys.
- * 
+ *
  * @param key Pointer to the address key.
  * @param size Size of the hash table.
  * @param i Probe number for collision resolution.
@@ -229,7 +242,7 @@ uint64_t hash_address(const void* key, uint64_t size, uint64_t i);
 
 /**
  * @brief Compares two address keys for equality.
- * 
+ *
  * @param key1 Pointer to the first address key.
  * @param key2 Pointer to the second address key.
  * @return 0 if the keys are equal, non-zero otherwise.
@@ -238,7 +251,7 @@ int hash_address_compare(const void* key1, const void* key2);
 
 /**
  * @brief Searches for a address key in the hash table.
- * 
+ *
  * @param table Pointer to the hash table.
  * @param key Pointer to the address key to search.
  * @return Pointer to the associated value, or NULL if the key is not found.
