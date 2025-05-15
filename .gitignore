@@ -4,6 +4,7 @@
 /docs/papers
 /docs/kernel
 /docs/khronos
+/docs/html
 
 # Files
 *.log
