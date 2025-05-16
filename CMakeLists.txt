@@ -41,7 +41,7 @@ add_library(vk-minimal SHARED
     "src/vk/shader.c"
 )
 target_include_directories(vk-minimal PUBLIC include)
-target_link_libraries("vk-minimal" PUBLIC m rt vulkan)
+target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan)
 
 enable_testing()
 # add_subdirectory(tests)
