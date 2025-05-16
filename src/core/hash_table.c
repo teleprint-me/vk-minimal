@@ -27,6 +27,7 @@
  */
 
 #include "core/logger.h"
+#include "core/memory.h"
 #include "core/hash_table.h"
 
 #include <string.h>
@@ -36,7 +37,7 @@
  */
 
 HashTable* hash_table_create(uint64_t initial_size, HashTableType key_type) {
-    HashTable* table = (HashTable*) malloc(sizeof(HashTable));
+    HashTable* table = memory_aligned_alloc(sizeof(HashTable), alignof(HashTable));
     if (!table) {
         LOG_ERROR("Failed to allocate memory for HashTable.");
         return NULL;
@@ -65,7 +66,7 @@ HashTable* hash_table_create(uint64_t initial_size, HashTableType key_type) {
             return NULL;
     }
 
-    table->entries = (HashTableEntry*) calloc(table->size, sizeof(HashTableEntry));
+    table->entries = memory_aligned_calloc(table->size, sizeof(HashTableEntry), alignof(HashTableEntry));
     if (!table->entries) {
         LOG_ERROR("Failed to allocate memory for HashTable entries.");
         free(table);
