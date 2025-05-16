@@ -32,30 +32,20 @@
 
 /**
  * @brief Enum representing the accessibility scope of a memory lease.
- *
- * - LEASE_ACCESS_GLOBAL: Memory is accessible globally across the application.
- * - LEASE_ACCESS_LOCAL: Memory is accessible within a limited or local scope.
- * - LEASE_ACCESS_STATIC: Memory is statically allocated and not subject to deallocation.
  */
 typedef enum LeaseAccess {
-    LEASE_ACCESS_GLOBAL,
-    LEASE_ACCESS_LOCAL,
-    LEASE_ACCESS_STATIC
+    LEASE_ACCESS_GLOBAL, /**< Memory is accessible globally across the application */
+    LEASE_ACCESS_LOCAL, /**< Memory is accessible within a limited or local scope */
+    LEASE_ACCESS_STATIC /**< Memory is statically allocated and not subject to deallocation */
 } LeaseAccess;
 
 /**
  * @brief Enum representing the ownership contract of a memory lease.
- *
- * - LEASE_CONTRACT_OWNED: The LeaseTenant fully owns the memory and is responsible for freeing it.
- * - LEASE_CONTRACT_BORROWED: The LeaseTenant references memory owned elsewhere; it must not free
- * it.
- * - LEASE_CONTRACT_STATIC: The memory is static and has indefinite lifetime; no deallocation
- * needed.
  */
 typedef enum LeaseContract {
-    LEASE_CONTRACT_OWNED,
-    LEASE_CONTRACT_BORROWED,
-    LEASE_CONTRACT_STATIC
+    LEASE_CONTRACT_OWNED, /**< The LeaseTenant fully owns the memory and is responsible for freeing it */
+    LEASE_CONTRACT_BORROWED, /**< The LeaseTenant references memory owned elsewhere; it must not free it */
+    LEASE_CONTRACT_STATIC /**< The memory is static and has indefinite lifetime; no deallocation needed. */
 } LeaseContract;
 
 /**
