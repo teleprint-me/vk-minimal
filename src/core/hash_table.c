@@ -98,7 +98,7 @@ void hash_table_free(HashTable* table) {
 }
 
 /**
- * @section Internal Functions
+ * @section Private Functions
  */
 
 static HashTableState hash_table_insert_internal(HashTable* table, const void* key, void* value) {
@@ -250,6 +250,33 @@ static HashTableState hash_table_clear_internal(HashTable* table) {
     return HASH_SUCCESS;
 }
 
+static void* hash_table_search_internal(HashTable* table, const void* key) {
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for search internal.");
+        return NULL;
+    }
+
+    if (!key) {
+        LOG_ERROR("Key is NULL.");
+        return NULL;
+    }
+
+    for (uint64_t i = 0; i < table->size; i++) {
+        uint64_t index = table->hash(key, table->size, i);
+        HashTableEntry* entry = &table->entries[index];
+
+        if (!entry->key) {
+            return NULL;
+        }
+
+        if (0 == table->compare(entry->key, key)) {
+            return entry->value;
+        }
+    }
+
+    return NULL;
+}
+
 /**
  * @section Hash Functions
  */
@@ -291,7 +318,7 @@ HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
         LOG_ERROR("Invalid table for resize.");
         return HASH_ERROR;
     }
-    
+
     HashTableState state;
     pthread_mutex_lock(&table->thread_lock);
     state = hash_table_resize_internal(table, new_size);
@@ -331,33 +358,26 @@ HashTableState hash_table_clear(HashTable* table) {
 }
 
 void* hash_table_search(HashTable* table, const void* key) {
-    if (!table) {
-        LOG_ERROR("Table is NULL.");
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for search.");
         return NULL;
     }
+
     if (!key) {
         LOG_ERROR("Key is NULL.");
         return NULL;
     }
 
-    for (uint64_t i = 0; i < table->size; i++) {
-        uint64_t index = table->hash(key, table->size, i);
-
-        HashTableEntry* entry = &table->entries[index];
-        if (entry->key == NULL) {
-            return NULL; // Not found
-        }
-
-        if (table->compare(entry->key, key) == 0) {
-            return entry->value; // Found
-        }
-    }
-
-    LOG_DEBUG("Key not found: %s.", (char*) key);
-    return NULL; // Not found
+    void* value = NULL;
+    pthread_mutex_lock(&table->thread_lock);
+    value = hash_table_search_internal(table, key);
+    pthread_mutex_unlock(&table->thread_lock);
+    return value;
 }
 
-// --- Hash Integers ---
+/**
+ * @section Hash Integers
+ */
 
 uint64_t hash_integer(const void* key, uint64_t size, uint64_t i) {
     const int32_t* k = (int32_t*) key;
@@ -370,10 +390,12 @@ int hash_integer_compare(const void* key1, const void* key2) {
 }
 
 int32_t* hash_integer_search(HashTable* table, const void* key) {
-    return (int32_t*) hash_table_search(table, key);
+    return (int32_t*) hash_table_search_internal(table, key);
 }
 
-// --- Hash Strings ---
+/**
+ * @section Hash Strings
+ */
 
 uint64_t hash_djb2(const char* string) {
     uint64_t hash = 5381;
@@ -396,10 +418,12 @@ int hash_string_compare(const void* key1, const void* key2) {
 }
 
 char* hash_string_search(HashTable* table, const void* key) {
-    return (char*) hash_table_search(table, key);
+    return (char*) hash_table_search_internal(table, key);
 }
 
-// --- Hash Addresses ---
+/**
+ * @section Hash Addresses
+ */
 
 uint64_t hash_address(const void* key, uint64_t size, uint64_t i) {
     uintptr_t addr = (uintptr_t) key;
@@ -414,5 +438,5 @@ int hash_address_compare(const void* key1, const void* key2) {
 }
 
 void* hash_address_search(HashTable* table, const void* key) {
-    return (void*) hash_table_search(table, key);
+    return (void*) hash_table_search_internal(table, key);
 }
