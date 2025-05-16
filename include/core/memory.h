@@ -2,11 +2,13 @@
  * Copyright © 2024 Austin Berrio
  *
  * @file include/core/memory.h
- * @brief Utility functions for computing memory alignment and padding.
+ * @brief Utility functions for memory alignment, padding, and allocation.
  *
- * This module provides functions to check for power-of-two alignments,
- * determine whether an address is aligned, round addresses up to a given alignment,
- * and calculate the padding needed.
+ * Provides helper functions to:
+ * - Check power-of-two properties
+ * - Determine alignment of addresses or sizes
+ * - Calculate padding and aligned sizes
+ * - Allocate aligned memory blocks with posix_memalign
  */
 
 #ifndef MEMORY_H
@@ -20,89 +22,102 @@
 #include <malloc.h>
 #include <assert.h>
 
+/**
+ * @brief Default memory alignment (8 bytes).
+ */
 #define MEMORY_ALIGNMENT 8
 
 /**
- * @brief Computes x modulo y, optimized for y being a power of two.
- *
- * @param x The number (or address) to compute the offset from.
- * @param y The alignment value; must be greater than 0.
- * @return The remainder when x is divided by y.
+ * @name Alignment Utilities
+ * @{
  */
-static inline uintptr_t memory_bitwise_offset(uintptr_t x, uintptr_t y) {
-    assert(y > 0);
-    return x & (y - 1);
-}
 
 /**
- * @brief Checks if a number is a power of two.
+ * @brief Computes x modulo y, optimized for when y is a power of two.
  *
- * @param x The value to check.
- * @return true if x is a nonzero power of two, false otherwise.
+ * @param x The value (or address) to compute offset for.
+ * @param y The alignment boundary; must be greater than zero.
+ * @return The remainder of x divided by y (x % y).
  */
-static inline bool memory_is_power_of_two(uintptr_t x) {
-    return x != 0 && memory_bitwise_offset(x, x) == 0;
-}
+uintptr_t memory_bitwise_offset(uintptr_t x, uintptr_t y);
 
 /**
- * @brief Determines if x is aligned to a given alignment.
+ * @brief Checks if a value is a nonzero power of two.
  *
- * @param x The address or value to check.
- * @param alignment The alignment boundary (must be a power of two).
+ * @param x Value to test.
+ * @return true if x is a power of two and not zero, false otherwise.
+ */
+bool memory_is_power_of_two(uintptr_t x);
+
+/**
+ * @brief Checks if a value or address is aligned to the given boundary.
+ *
+ * @param x The value or address to check.
+ * @param alignment Alignment boundary; must be a power of two.
  * @return true if x is aligned to alignment, false otherwise.
  */
-static inline bool memory_is_aligned(uintptr_t x, uintptr_t alignment) {
-    assert(memory_is_power_of_two(alignment));
-    return memory_bitwise_offset(x, alignment) == 0;
-}
+bool memory_is_aligned(uintptr_t x, uintptr_t alignment);
 
 /**
- * @brief Rounds up an address to the next multiple of alignment.
+ * @brief Rounds up an address to the next aligned boundary.
  *
- * @param address The starting address.
- * @param alignment The alignment boundary (must be a power of two).
- * @return The next address that is aligned to the specified boundary.
+ * If the address is already aligned, it is returned unchanged.
+ *
+ * @param address Starting address.
+ * @param alignment Alignment boundary; must be a power of two.
+ * @return The next aligned address >= address.
  */
-static inline uintptr_t memory_next_aligned_address(uintptr_t address, uintptr_t alignment) {
-    assert(memory_is_power_of_two(alignment));
-    uintptr_t offset = memory_bitwise_offset(address, alignment);
-    return (offset != 0) ? address + alignment - offset : address;
-}
+uintptr_t memory_next_aligned_address(uintptr_t address, uintptr_t alignment);
 
 /**
- * @brief Computes the number of bytes needed to pad address up to alignment.
+ * @brief Computes the number of bytes needed to pad an address up to alignment.
  *
  * @param address The current address.
- * @param alignment The alignment boundary (must be a power of two).
- * @return The number of bytes to add to address to achieve alignment.
+ * @param alignment Alignment boundary; must be a power of two.
+ * @return Number of bytes to add to address to align it.
  */
-static inline size_t memory_padding_needed(uintptr_t address, size_t alignment) {
-    assert(memory_is_power_of_two(alignment));
-    size_t offset = memory_bitwise_offset(address, alignment);
-    return (offset != 0) ? alignment - offset : 0;
-}
+size_t memory_padding_needed(uintptr_t address, size_t alignment);
 
 /**
- * @brief Computes the size of x rounded up to the nearest multiple of alignment.
+ * @brief Rounds a size up to the nearest multiple of alignment.
  *
- * @param x The size (or address) to be rounded up.
- * @param alignment The alignment boundary (must be a power of two).
- * @return The size rounded up to the next multiple of alignment.
+ * @param x Size (or address) to round.
+ * @param alignment Alignment boundary; must be a power of two.
+ * @return Rounded size, the smallest multiple of alignment >= x.
  */
-static inline uintptr_t memory_aligned_size(uintptr_t x, uintptr_t alignment) {
-    assert(memory_is_power_of_two(alignment));
-    return (x + alignment - 1) & ~(alignment - 1);
-}
+uintptr_t memory_aligned_size(uintptr_t x, uintptr_t alignment);
+
+/** @} */
 
 /**
- * @brief Allocates aligned memory using posix_memalign.
+ * @name Aligned Memory Allocation
+ * @{
+ */
+
+/**
+ * @brief Allocates size bytes of memory aligned to alignment bytes.
  *
- * The returned pointer must be freed using free().
+ * Uses posix_memalign internally.
+ * The returned pointer must be freed with free().
  *
- * @param size The size of the memory block in bytes.
- * @param alignment The alignment boundary (must be a power of two).
- * @return A pointer to the allocated memory, or NULL if allocation fails.
+ * @param size Number of bytes to allocate.
+ * @param alignment Alignment boundary; must be a power of two and >= sizeof(void *).
+ * @return Pointer to allocated memory on success, NULL on failure.
  */
 void* memory_aligned_alloc(size_t size, size_t alignment);
+
+/**
+ * @brief Allocates zero-initialized memory for an array with alignment.
+ *
+ * Equivalent to calloc but aligned.
+ *
+ * @param n Number of elements.
+ * @param size Size of each element.
+ * @param alignment Alignment boundary; must be a power of two.
+ * @return Pointer to zeroed memory on success, NULL on failure.
+ */
+void* memory_aligned_calloc(size_t n, size_t size, size_t alignment);
+
+/** @} */
 
 #endif // MEMORY_H
