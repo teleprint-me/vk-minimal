@@ -135,7 +135,7 @@ static HashTableState hash_table_insert_internal(HashTable* table, const void* k
 
 static HashTableState hash_table_resize_internal(HashTable* table, uint64_t new_size) {
     if (!table || !table->entries || table->size == 0) {
-        LOG_ERROR("Invalid table for resize.");
+        LOG_ERROR("Invalid table for resize internal.");
         return HASH_ERROR;
     }
 
@@ -235,6 +235,21 @@ static HashTableState hash_table_delete_internal(HashTable* table, const void* k
     return HASH_KEY_NOT_FOUND;
 }
 
+static HashTableState hash_table_clear_internal(HashTable* table) {
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for clear internal.");
+        return HASH_ERROR;
+    }
+
+    for (uint64_t i = 0; i < table->size; i++) {
+        table->entries[i].key = NULL;
+        table->entries[i].value = NULL;
+    }
+
+    table->count = 0;
+    return HASH_SUCCESS;
+}
+
 /**
  * @section Hash Functions
  */
@@ -276,11 +291,11 @@ HashTableState hash_table_resize(HashTable* table, uint64_t new_size) {
         LOG_ERROR("Invalid table for resize.");
         return HASH_ERROR;
     }
-
+    
+    HashTableState state;
     pthread_mutex_lock(&table->thread_lock);
-    HashTableState state = hash_table_resize_internal(table, new_size);
+    state = hash_table_resize_internal(table, new_size);
     pthread_mutex_unlock(&table->thread_lock);
-
     return state;
 }
 
@@ -303,26 +318,16 @@ HashTableState hash_table_delete(HashTable* table, const void* key) {
 }
 
 HashTableState hash_table_clear(HashTable* table) {
-    if (!table) {
-        LOG_ERROR("Table is NULL.");
-        return HASH_ERROR;
-    }
-    if (!table->entries) {
-        LOG_ERROR("Table entries are NULL.");
+    if (!table || !table->entries || table->size == 0) {
+        LOG_ERROR("Invalid table for clear.");
         return HASH_ERROR;
     }
 
-    for (uint64_t i = 0; i < table->size; i++) {
-        HashTableEntry* entry = &table->entries[i];
-        if (entry->key) {
-            // Clear the entry
-            entry->key = NULL;
-            entry->value = NULL;
-        }
-    }
-
-    table->count = 0; // Reset the count
-    return HASH_SUCCESS;
+    HashTableState state;
+    pthread_mutex_lock(&table->thread_lock);
+    state = hash_table_clear_internal(table);
+    pthread_mutex_unlock(&table->thread_lock);
+    return state;
 }
 
 void* hash_table_search(HashTable* table, const void* key) {
