@@ -49,6 +49,7 @@
   "files.associations": {
     "*.tcss": "jinja-css",
     "*.h": "c",
-    "coroutine": "c"
+    "coroutine": "c",
+    "random": "c"
   }
 }
