@@ -124,7 +124,7 @@ int main(void) {
      * Create a Vulkan Logical Device
      */
 
-    static float queue_priority = 1.0f;
+    static const float queue_priority = 1.0f;
     VkDeviceQueueCreateInfo queue_info = {0};
     VkDeviceCreateInfo device_info = {0};
 
