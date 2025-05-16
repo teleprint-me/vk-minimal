@@ -8,7 +8,7 @@ This project is designed for raw, low-level compute on Unix-like systems, emphas
 transparency:
 
 - **POSIX** — For broad compatibility across Unix systems.
-- **Linux** — Target environment; tested on modern distributions.
+- **Linux** — Target environment; tested on Arch Linux.
 - **CMake** — For project configuration and build management.
 - **PThreads** — Enables multi-threaded execution.
 - **libc** — Standard C library for system-level utilities.
@@ -18,13 +18,29 @@ transparency:
 
 All GPU work is done via compute shaders—no windowing, no rendering, no BS.
 
+## Platform Support
+
+Other Linux distributions may work but are untested.
+
 ## Build
 
-### 1. `build.sh`
+### 1. `doxy.sh`
+
+Automates compilation of HTML documentation.
+
+- Applies custom configurations via `doxy.conf`.
+- Creates a `docs/html` directory.
+- Recursively generates documentation from headers in `include/`.
+
+```sh
+chmod +x doxy.sh && ./doxy.sh
+```
+
+### 2. `build.sh`
 
 Automates compilation of binaries and SPIR-V shaders.
 
-- Creates a `build` directory and required subdirectories:
+- Creates a `build/` directory with subdirectories:
 
   - `shaders/` for SPIR-V binaries.
   - `examples/` for test drivers.
@@ -38,9 +54,9 @@ Automates compilation of binaries and SPIR-V shaders.
 chmod +x build.sh && ./build.sh
 ```
 
-### 2. `vk.sh`
+### 3. `vk.sh`
 
-A development script to run the Vulkan binary under AddressSanitizer (ASAN):
+Runs the Vulkan example binary with AddressSanitizer (ASAN) enabled.
 
 - Applies custom suppressions via `asan.supp`.
 - Configures LSAN and ASAN environment variables.
@@ -49,6 +65,12 @@ A development script to run the Vulkan binary under AddressSanitizer (ASAN):
 ```sh
 chmod +x vk.sh && ./vk.sh
 ```
+
+## Usage
+
+After building, binaries can be found in `build/examples/`.
+
+Run the Vulkan example directly or use the provided `vk.sh` script for ASAN-instrumented runs.
 
 ## Resources
 
