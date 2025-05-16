@@ -6,20 +6,6 @@
 #include "core/logger.h"
 #include "vk/alloc.h"
 
-LeaseAccess VKAPI_CALL vk_lease_access(VkSystemAllocationScope scope) {
-    switch (scope) {
-        case VK_SYSTEM_ALLOCATION_SCOPE_CACHE:
-        case VK_SYSTEM_ALLOCATION_SCOPE_COMMAND:
-        case VK_SYSTEM_ALLOCATION_SCOPE_OBJECT:
-            return LEASE_ACCESS_LOCAL;
-
-        case VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE:
-        case VK_SYSTEM_ALLOCATION_SCOPE_DEVICE:
-        default:
-            return LEASE_ACCESS_GLOBAL;
-    }
-}
-
 void* VKAPI_CALL vk_lease_alloc(
     void* pUserData,
     size_t size,
