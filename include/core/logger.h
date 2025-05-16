@@ -2,178 +2,142 @@
  * Copyright © 2024 Austin Berrio
  *
  * @file include/core/logger.h
- * @brief A simple and lightweight logger written in pure C
+ * @brief A simple and lightweight thread-safe logger in pure C.
  *
- * `logger.c` provides a minimal logging library that allows you to log
- * messages with different severity levels (e.g., DEBUG, INFO, WARN, ERROR) to
- * various outputs like console or file. It's designed to be lightweight and
- * easily integrated into existing C projects.
+ * Provides multi-level logging (DEBUG, INFO, WARN, ERROR) to console or files.
+ * Designed for easy integration into C projects with thread safety via mutexes.
  */
 
 #ifndef LOGGER_H
 #define LOGGER_H
 
 #include <errno.h>
-#include <pthread.h> // For including mutex functions
-#include <stdarg.h> // For variadic function support
+#include <pthread.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h> // For memory allocation support
-#include <string.h> // Include for strerror declaration
+#include <stdlib.h>
+#include <string.h>
 
 /**
- * @brief Enumeration representing different levels of logging.
- *
- * @param LOG_LEVEL_DEBUG Debug level logging.
- * @param LOG_LEVEL_INFO Information level logging.
- * @param LOG_LEVEL_WARN Warning level logging.
- * @param LOG_LEVEL_ERROR  Error level logging.
+ * @brief Logging severity levels.
  */
 typedef enum LogLevel {
-    LOG_LEVEL_DEBUG,
-    LOG_LEVEL_INFO,
-    LOG_LEVEL_WARN,
-    LOG_LEVEL_ERROR
+    LOG_LEVEL_DEBUG, /**< Detailed debug information. */
+    LOG_LEVEL_INFO, /**< General informational messages. */
+    LOG_LEVEL_WARN, /**< Warning conditions. */
+    LOG_LEVEL_ERROR /**< Error conditions. */
 } LogLevel;
 
 /**
- * @brief Enumeration representing different types of logging.
- *
- * @param LOG_TYPE_UNKNOWN Unknown log type.
- * @param LOG_TYPE_STREAM Log to a stream (e.g., stdout or stderr).
- * @param LOG_TYPE_FILE Log to a file.
+ * @brief Types of logging output.
  */
 typedef enum LogType {
-    LOG_TYPE_UNKNOWN,
-    LOG_TYPE_STREAM,
-    LOG_TYPE_FILE
+    LOG_TYPE_UNKNOWN, /**< Unknown or uninitialized logger type. */
+    LOG_TYPE_STREAM, /**< Logging to a stream (e.g., stdout, stderr). */
+    LOG_TYPE_FILE /**< Logging to a file. */
 } LogType;
 
 /**
- * @brief Structure representing a logger object.
- *
- * @param log_level The logging level of the logger.
- * @param log_type The type of logger.
- * @param log_type_name The name associated with the logger type.
- * @param file_stream The file stream for writing log messages.
- * @param file_path The path to the log file.
- * @param thread_lock Mutex to ensure thread-safe logging.
+ * @brief Logger object encapsulating log state.
  */
 typedef struct Logger {
-    LogLevel log_level;
-    LogType log_type;
-    const char* log_type_name;
-    FILE* file_stream;
-    const char* file_path;
-    pthread_mutex_t thread_lock;
+    LogLevel log_level; /**< Current log level threshold. */
+    LogType log_type; /**< Type of logging output. */
+    const char* log_type_name; /**< String name of logger type. */
+    FILE* file_stream; /**< File or stream pointer for logging. */
+    const char* file_path; /**< Path to log file if applicable. */
+    pthread_mutex_t thread_lock; /**< Mutex for thread-safe logging. */
 } Logger;
 
 /**
- * @brief Sets the logger type and name.
+ * @name Logger Lifecycle
+ * @{
+ */
+
+/**
+ * @brief Sets logger type and corresponding name.
  *
- * This function validates and sets the logger type and name
- * based on the provided logger type.
- *
- * @param logger The logger structure to update.
- * @param log_type The desired logger type.
- *
- * @return True if the type and name were set successfully, false otherwise.
+ * @param logger Logger instance to update.
+ * @param log_type Desired logger type.
+ * @return true if successful, false otherwise.
  */
 bool set_logger_type_and_name(Logger* logger, LogType log_type);
 
 /**
- * @brief Sets the file path and stream for the logger.
+ * @brief Sets file path and opens file stream for logging.
  *
- * This function sets the file path and stream for the logger based on the
- * provided file path. If the file path is NULL, the logger stream is set to
- * stderr, and false is returned to indicate a user error. If the file path
- * is not NULL, an attempt is made to open the file for writing. If the file
- * opening fails, the logger stream is set to stderr, and false is returned
- * to indicate an unexpected condition. If the file path is set successfully,
- * true is returned.
+ * If file_path is NULL or cannot be opened, defaults to stderr.
  *
- * @param logger The logger structure to update.
- * @param file_path The path to the log file. Pass NULL to log messages to
- * stderr.
- *
- * @return True if the file path was set successfully, false otherwise.
+ * @param logger Logger instance to update.
+ * @param file_path Path to log file or NULL for stderr.
+ * @return true if file stream set successfully, false otherwise.
  */
 bool set_logger_file_path_and_stream(Logger* logger, const char* file_path);
 
 /**
- * @brief Creates a new logger instance.
+ * @brief Creates a new logger with default settings.
  *
- * This function dynamically allocates memory for a new logger instance
- * and initializes it with sane default values.
+ * Allocates and initializes a Logger instance with given type.
  *
- * @param log_type The desired logger type.
- *
- * @return A pointer to the newly created logger instance, or NULL if memory
- * allocation fails or if the logger type is invalid.
+ * @param log_type Desired logger type.
+ * @return Pointer to newly created Logger or NULL on failure.
  */
 Logger* logger_new(LogType log_type);
 
 /**
- * @brief Creates a new logger instance with the specified log file path and
- * log level.
+ * @brief Creates a new logger with specified log level, type, and optional file.
  *
- * This function creates a new logger instance and initializes it with the
- * specified log level. If a log file path is provided, the logger will attempt
- * to open the file for writing. If the file opening fails, the logger will
- * fall back to writing log messages to stderr.
- *
- * @param log_level The desired log level for the logger.
- * @param log_type The desired log type for the logger.
- * @param file_path The path to the log file. Pass NULL to log messages to
- * stderr.
- *
- * @return A pointer to the newly created logger instance, or NULL if memory
- * allocation fails or if the specified log file cannot be opened.
+ * @param log_level Log level threshold.
+ * @param log_type Logger type.
+ * @param file_path Optional log file path (NULL logs to stderr).
+ * @return Pointer to newly created Logger or NULL on failure.
  */
 Logger* logger_create(LogLevel log_level, LogType log_type, const char* file_path);
 
 /**
- * @brief Destroys a logger instance and releases associated resources.
+ * @brief Frees a Logger instance and associated resources.
  *
- * This function closes the log file associated with the logger, if any,
- * and frees the memory allocated for the logger instance.
+ * Closes open file streams and destroys mutex.
  *
- * @param logger A pointer to the logger instance to be destroyed.
- * @return True if the logger was successfully destroyed, false otherwise.
+ * @param logger Pointer to Logger to free.
+ * @return true if successfully freed, false otherwise.
  */
 bool logger_free(Logger* logger);
 
+/** @} */
+
 /**
- * @brief Logs a message with the specified log level to the logger's file.
+ * @name Logging Functions
+ * @{
+ */
+
+/**
+ * @brief Logs a formatted message if log_level is sufficient.
  *
- * This function logs a message with the specified log level to the logger's
- * file. If the logger's log level is lower than the specified log level, the
- * message will not be logged.
+ * Thread-safe: acquires mutex during logging.
  *
- * @param logger A pointer to the logger instance to use for logging.
- * @param log_level The log level of the message to be logged.
- * @param format The format string of the message to be logged.
- * @param ... Additional arguments for formatting the message (optional).
- *
- * @return true if the message was successfully logged, false otherwise.
+ * @param logger Logger instance to use.
+ * @param log_level Severity level of this message.
+ * @param format printf-style format string.
+ * @param ... Variadic arguments for format.
+ * @return true if message logged successfully, false otherwise.
  */
 bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...);
 
+/** @} */
+
 /**
- * @brief Macro for logging messages using a logger instance.
+ * @name Logging Macros
+ * @{
+ */
+
+/**
+ * @brief Macro to log messages with file, function, and line info.
  *
- * This macro provides a convenient shorthand for logging messages using a
- * logger instance. It calls the logger_message function with the specified
- * logger, log level, and message format.
- *
- * @param logger A pointer to the logger instance to use for logging.
- * @param level The log level of the message to be logged.
- * @param format The format string of the message to be logged.
- * @param ... Additional arguments for formatting the message (optional).
- *
- * Example usage:
- * @code{.c}
- * LOG(my_logger, LOG_LEVEL_DEBUG, "Debug message: %s\n", "Hello, world!");
+ * Usage:
+ * @code
+ * LOG(logger, LOG_LEVEL_DEBUG, "Value: %d", val);
  * @endcode
  */
 #define LOG(logger, level, format, ...) \
@@ -182,51 +146,33 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
     )
 
 /**
- * @brief Global Logger Object
+ * @brief Convenience macros for global_logger usage.
+ */
+#define LOG_DEBUG(format, ...) LOG(&global_logger, LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
+#define LOG_INFO(format, ...) LOG(&global_logger, LOG_LEVEL_INFO, format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
+#define LOG_WARNING(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
+#define LOG_ERROR(format, ...) LOG(&global_logger, LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
+
+/** @} */
+
+/**
+ * @brief Global logger instance for application-wide logging.
  *
- * The global logger object provides a centralized logging mechanism for the
- * program. It is statically initialized with default values and can be
- * accessed from any part of the program to log messages at various log levels.
- * The logger ensures thread-safe logging through the use of a mutex.
- *
- * @note The global logger object should not be reinitialized or modified after
- * its creation, as this could lead to undefined behavior. Additionally,
- * explicitly destroying the mutex associated with the logger is not strictly
- * necessary but can be considered good practice, especially in environments
- * where resources are checked meticulously at program exit.
- *
- * @var global_logger
- * The global logger object has the following attributes:
- * - LogLevel: The logging level of the logger.
- * - LogType: The type of logger.
- * - LogType_name: The name associated with the logger type.
- * - file_stream: The file stream for writing log messages.
- * - file_path: The path to the log file.
- * - thread_lock: Mutex to ensure thread-safe logging.
- *
- * @warning Modifying the global logger object or attempting to reinitialize
- * the mutex after initialization can lead to undefined behavior.
+ * Initialized with sane defaults. Thread-safe.
  */
 extern Logger global_logger;
 
 /**
- * @brief Initialize Global Logger
+ * @brief Initializes the global logger with specified parameters.
  *
- * Initializes the global logger object with the specified attributes.
- * This function allows customization of the logger's properties such as
- * log level, log type, file stream, and file path. It should be called
- * before using the global logger to ensure proper logging behavior.
+ * Should be called once before global_logger usage.
  *
- * @param log_level The desired logging level for the logger.
- * @param log_type The type of logger to be used (e.g., stream, file).
- * @param log_type_name The name associated with the logger type.
- * @param file_stream The file stream for writing log messages (NULL if not
- * applicable).
- * @param file_path The path to the log file (NULL if not applicable).
- *
- * @warning Calling this function may alter the behavior of the global logger
- * and should be used with caution. Avoid calling this function after the
- * global logger has been initialized to prevent unintended side effects.
+ * @param log_level Desired log level.
+ * @param log_type Logger type.
+ * @param log_type_name Name string of logger type.
+ * @param file_stream FILE pointer for logging (NULL for default).
+ * @param file_path File path if applicable (NULL otherwise).
  */
 void initialize_global_logger(
     LogLevel log_level,
@@ -235,26 +181,5 @@ void initialize_global_logger(
     FILE* file_stream,
     const char* file_path
 );
-
-/**
- * @brief Convenience macros for logging with the global logger.
- *
- * These macros provide shorthand methods for logging messages at various
- * levels (DEBUG, INFO, WARN, ERROR) using the global logger.
- *
- * @param format The format string for the log message.
- * @param ... Additional arguments for formatting the message (optional).
- *
- * Example usage:
- * @code{.c}
- * LOG_DEBUG("Debug message: %s\n", "Hello, world!");
- * LOG_ERROR("Error: %d occurred in function %s\n", error_code, __func__);
- * @endcode
- */
-#define LOG_DEBUG(format, ...) LOG(&global_logger, LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
-#define LOG_INFO(format, ...) LOG(&global_logger, LOG_LEVEL_INFO, format, ##__VA_ARGS__)
-#define LOG_WARN(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
-#define LOG_WARNING(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...) LOG(&global_logger, LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
 
 #endif // LOGGER_H
