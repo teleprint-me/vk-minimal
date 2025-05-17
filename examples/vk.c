@@ -14,7 +14,6 @@ int main(void) {
      * Lease Allocator for sanely tracking memory allocations.
      */
 
-    LeaseOwner* vk_lease_owner = lease_create_owner(1024); // local
     LeaseOwner* vk_alloc_owner = lease_create_owner(2048); // scoped
     VkAllocationCallbacks vk_alloc = vk_lease_callbacks(vk_alloc_owner);
 
@@ -65,59 +64,112 @@ int main(void) {
      */
 
     uint32_t physical_device_count = 0;
+    VkPhysicalDevice* physical_device_list = NULL;
+    VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
+    VkPhysicalDeviceProperties selected_properties = {0};
     uint32_t compute_queue_family_index = UINT32_MAX;
-    VkPhysicalDevice* physical_devices = VK_NULL_HANDLE;
-    VkPhysicalDevice selected_device = VK_NULL_HANDLE;
 
-    vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL); // ASAN is detecting leaks
-    if (physical_device_count == 0) {
-        LOG_ERROR("No Vulkan-compatible GPUs found.");
+    result = vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
+    if (result != VK_SUCCESS || physical_device_count == 0) {
+        LOG_ERROR(
+            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
+            result,
+            physical_device_count
+        );
         goto cleanup_instance;
     }
 
-    // Track the allocated device list
-    physical_devices = lease_alloc_owned_address(
-        vk_lease_owner,
+    physical_device_list = lease_alloc_owned_address(
+        vk_alloc_owner,
         sizeof(VkPhysicalDevice) * physical_device_count,
         alignof(VkPhysicalDevice)
     );
-    if (!physical_devices) {
-        LOG_ERROR("Failed to allocate physical device list.");
+    if (!physical_device_list) {
+        LOG_ERROR("Failed to allocate device list.");
         goto cleanup_instance;
     }
 
-    vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
+    result = vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_device_list);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to enumerate devices (VkResult: %d)", result);
+        goto cleanup_instance;
+    }
 
-    // Pick the first device with compute support
+    // Try to find the first discrete GPU with compute support
     for (uint32_t i = 0; i < physical_device_count; ++i) {
-        uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, NULL);
+        VkPhysicalDevice device = physical_device_list[i];
+        VkPhysicalDeviceProperties props = {0};
+        vkGetPhysicalDeviceProperties(device, &props);
 
-        VkQueueFamilyProperties queue_families[queue_family_count];
-        vkGetPhysicalDeviceQueueFamilyProperties(
-            physical_devices[i], &queue_family_count, queue_families
+        uint32_t queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
+
+        VkQueueFamilyProperties* queue_families = lease_alloc_owned_address(
+            vk_alloc_owner,
+            sizeof(VkQueueFamilyProperties) * queue_family_count,
+            alignof(VkQueueFamilyProperties)
         );
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
+
+        LOG_INFO("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
 
         for (uint32_t j = 0; j < queue_family_count; ++j) {
             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                selected_device = physical_devices[i];
-                compute_queue_family_index = j;
-                break;
+                if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+                    && selected_physical_device == VK_NULL_HANDLE) {
+                    selected_physical_device = device;
+                    selected_properties = props;
+                    compute_queue_family_index = j;
+                    break;
+                }
             }
         }
-
-        if (selected_device != VK_NULL_HANDLE) {
+        if (selected_physical_device != VK_NULL_HANDLE) {
             break;
         }
     }
 
-    if (selected_device == VK_NULL_HANDLE) {
-        LOG_ERROR("No suitable GPU found with compute capabilities.");
+    // Fallback: if no discrete GPU with compute, pick *any* device with compute support
+    if (selected_physical_device == VK_NULL_HANDLE) {
+        for (uint32_t i = 0; i < physical_device_count; ++i) {
+            VkPhysicalDevice device = physical_device_list[i];
+            VkPhysicalDeviceProperties props = {0};
+            vkGetPhysicalDeviceProperties(device, &props);
+
+            uint32_t queue_family_count = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
+
+            VkQueueFamilyProperties* queue_families = lease_alloc_owned_address(
+                vk_alloc_owner,
+                sizeof(VkQueueFamilyProperties) * queue_family_count,
+                alignof(VkQueueFamilyProperties)
+            );
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
+
+            for (uint32_t j = 0; j < queue_family_count; ++j) {
+                if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    selected_physical_device = device;
+                    selected_properties = props;
+                    compute_queue_family_index = j;
+                    break;
+                }
+            }
+            if (selected_physical_device != VK_NULL_HANDLE) {
+                break;
+            }
+        }
+    }
+
+    if (selected_physical_device == VK_NULL_HANDLE) {
+        LOG_ERROR("No suitable device with compute queue found.");
         goto cleanup_instance;
     }
 
     LOG_INFO(
-        "Selected physical device with compute queue family index: %u", compute_queue_family_index
+        "Selected device: %s (type=%d), compute queue index: %u",
+        selected_properties.deviceName,
+        selected_properties.deviceType,
+        compute_queue_family_index
     );
 
     /**
@@ -150,7 +202,7 @@ int main(void) {
         .pEnabledFeatures = NULL, // VkPhysicalDeviceFeatures later if needed
     };
 
-    result = vkCreateDevice(selected_device, &device_info, &vk_alloc, &device);
+    result = vkCreateDevice(selected_physical_device, &device_info, &vk_alloc, &device);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         goto cleanup_instance;
@@ -178,7 +230,11 @@ int main(void) {
     rewind(file);
 
     // Track the buffer because Vulkan won't free this later on for us.
-    char* code = (char*) lease_alloc_owned_address(vk_lease_owner, (size_t) length + 1, alignof(char));
+    char* code = (char*) lease_alloc_owned_address(
+        vk_alloc_owner,
+        (size_t) length + 1,
+        alignof(char)
+    );
     if (!code) {
         fclose(file);
         LOG_ERROR("Failed to allocate memory for shader file");
@@ -222,7 +278,6 @@ cleanup_device:
 cleanup_instance:
     vkDestroyInstance(instance, NULL);
 cleanup_lease:
-    lease_free_owner(vk_lease_owner);
     lease_free_owner(vk_alloc_owner);
 
     LOG_INFO("Vulkan application destroyed.");
