@@ -44,7 +44,7 @@ target_include_directories(vk-minimal PUBLIC include)
 target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan)
 
 enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(tests)
 add_subdirectory(examples)
 
 # Custom doc target for generating docs
