@@ -35,7 +35,7 @@ typedef struct LoggerFileTest {
 int test_logger_file(TestCase* test) {
     LoggerFileTest* unit = (LoggerFileTest*) test->unit;
     const char* temp_file = "test_tmp.log";
-    remove(temp_file); // Remove file if exists before the test
+    remove(temp_file); // Clean up old file BEFORE creating logger
 
     // Log a message
     Logger* logger = logger_create(unit->set_level, LOG_TYPE_FILE, temp_file);
@@ -55,7 +55,7 @@ int test_logger_file(TestCase* test) {
         }
         fclose(fp);
     }
-    remove(temp_file);
+    remove(temp_file); // Clean up AFTER reading
 
     ASSERT(
         found == unit->should_log,
@@ -116,16 +116,6 @@ void test_logging_at_different_levels() {
     LOG(level_logger, LOG_LEVEL_INFO, "Should log info\n");
     LOG(level_logger, LOG_LEVEL_ERROR, "Should log error\n");
     logger_free(level_logger);
-}
-
-// Test logging to a file
-void test_logging_to_file() {
-    const char* file_path = "test.log";
-    Logger* file_logger = logger_create(LOG_LEVEL_DEBUG, LOG_TYPE_FILE, file_path);
-    LOG(file_logger, LOG_LEVEL_DEBUG, "Logging to a file: 1, 2, %d... Done!\n", 3);
-
-    // Clean up
-    logger_free(file_logger);
 }
 
 int main(void) {
