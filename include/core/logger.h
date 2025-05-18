@@ -62,7 +62,7 @@ typedef struct Logger {
  * @param log_type Desired logger type.
  * @return true if successful, false otherwise.
  */
-bool set_logger_type_and_name(Logger* logger, LogType log_type);
+bool logger_set_type_and_name(Logger* logger, LogType log_type);
 
 /**
  * @brief Sets file path and opens file stream for logging.
@@ -73,7 +73,7 @@ bool set_logger_type_and_name(Logger* logger, LogType log_type);
  * @param file_path Path to log file or NULL for stderr.
  * @return true if file stream set successfully, false otherwise.
  */
-bool set_logger_file_path_and_stream(Logger* logger, const char* file_path);
+bool logger_set_file_path_and_stream(Logger* logger, const char* file_path);
 
 /**
  * @brief Creates a new logger with default settings.
@@ -146,13 +146,13 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
     )
 
 /**
- * @brief Convenience macros for global_logger usage.
+ * @brief Convenience macros for logger_global usage.
  */
-#define LOG_DEBUG(format, ...) LOG(&global_logger, LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
-#define LOG_INFO(format, ...) LOG(&global_logger, LOG_LEVEL_INFO, format, ##__VA_ARGS__)
-#define LOG_WARN(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
-#define LOG_WARNING(format, ...) LOG(&global_logger, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...) LOG(&global_logger, LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
+#define LOG_DEBUG(format, ...) LOG(&logger_global, LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
+#define LOG_INFO(format, ...) LOG(&logger_global, LOG_LEVEL_INFO, format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) LOG(&logger_global, LOG_LEVEL_WARN, format, ##__VA_ARGS__)
+#define LOG_WARNING LOG_WARN // Keep it simple, smartass
+#define LOG_ERROR(format, ...) LOG(&logger_global, LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
 
 /** @} */
 
@@ -161,12 +161,12 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
  *
  * Initialized with sane defaults. Thread-safe.
  */
-extern Logger global_logger;
+extern Logger logger_global;
 
 /**
- * @brief Initializes the global logger with specified parameters.
+ * @brief Mutates global logger with specified parameters.
  *
- * Should be called once before global_logger usage.
+ * Should be called once before logger_global usage.
  *
  * @param log_level Desired log level.
  * @param log_type Logger type.
@@ -174,7 +174,7 @@ extern Logger global_logger;
  * @param file_stream FILE pointer for logging (NULL for default).
  * @param file_path File path if applicable (NULL otherwise).
  */
-void initialize_global_logger(
+void logger_set_global(
     LogLevel log_level,
     LogType log_type,
     const char* log_type_name,

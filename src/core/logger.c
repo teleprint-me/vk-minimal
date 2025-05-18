@@ -25,7 +25,7 @@ const char* LOG_TYPE_NAME[] = {"unknown", "stream", "file"};
  *
  * @return True if the type and name were set successfully, false otherwise.
  */
-bool set_logger_type_and_name(Logger* logger, LogType log_type) {
+bool logger_set_type_and_name(Logger* logger, LogType log_type) {
     // Set logger type based on provided logger type
     switch (log_type) {
         case LOG_TYPE_UNKNOWN:
@@ -60,10 +60,10 @@ bool set_logger_type_and_name(Logger* logger, LogType log_type) {
  *
  * @return True if the file path was set successfully, false otherwise.
  */
-bool set_logger_file_path_and_stream(Logger* logger, const char* file_path) {
+bool logger_set_file_path_and_stream(Logger* logger, const char* file_path) {
     if (file_path == NULL) {
         // set the logger type to stream upon failure.
-        set_logger_type_and_name(logger, LOG_TYPE_STREAM);
+        logger_set_type_and_name(logger, LOG_TYPE_STREAM);
         logger->file_stream = stderr;
         return false; // File path is NULL (user error)
     }
@@ -71,7 +71,7 @@ bool set_logger_file_path_and_stream(Logger* logger, const char* file_path) {
     logger->file_stream = fopen(file_path, "w");
     if (logger->file_stream == NULL) {
         // set the logger type to stream upon failure.
-        set_logger_type_and_name(logger, LOG_TYPE_STREAM);
+        logger_set_type_and_name(logger, LOG_TYPE_STREAM);
         logger->file_stream = stderr;
         return false; // Failed to open file (unexpected condition)
     }
@@ -106,7 +106,7 @@ Logger* logger_new(LogType log_type) {
     logger->log_level = LOG_LEVEL_DEBUG;
 
     // Set logger type and name
-    if (!set_logger_type_and_name(logger, log_type)) {
+    if (!logger_set_type_and_name(logger, log_type)) {
         fprintf(stderr, "Failed to initialize logger with type: %d\n", log_type);
         free(logger); // Clean up allocated memory to avoid memory leaks
         return NULL;
@@ -161,7 +161,7 @@ Logger* logger_create(LogLevel log_level, LogType log_type, const char* file_pat
             logger->file_stream = stderr;
             break;
         case LOG_TYPE_FILE:
-            if (!set_logger_file_path_and_stream(logger, file_path)) {
+            if (!logger_set_file_path_and_stream(logger, file_path)) {
                 fprintf(stderr, "Failed to set log file path. Fallback to stderr.\n");
             }
             break;
@@ -230,6 +230,9 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
                       // logger->LogLevel
     }
 
+    // Only lock the thread if LogLevel is valid!
+    pthread_mutex_lock(&logger->thread_lock);
+
     int err = errno; // Capture errno at the start of the function to avoid changes
 
     // Apply lazy initialization for global logger
@@ -237,9 +240,6 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
         logger->file_stream = stderr;
         // WARN: DO NOT REINITIALIZE THE MUTEX
     }
-
-    // Only lock the thread if LogLevel is valid!
-    pthread_mutex_lock(&logger->thread_lock);
 
     // Prefix log messages based on the level
     switch (log_level) {
@@ -291,7 +291,7 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
  * necessary but can be considered good practice, especially in environments
  * where resources are checked meticulously at program exit.
  *
- * @var global_logger
+ * @var logger_global
  * The global logger object has the following attributes:
  * - log_level: The logging level of the logger.
  * - log_type: The type of logger.
@@ -303,7 +303,7 @@ bool logger_message(Logger* logger, LogLevel log_level, const char* format, ...)
  * @warning Modifying the global logger object or attempting to reinitialize
  * the mutex after initialization can lead to undefined behavior.
  */
-Logger global_logger = {
+Logger logger_global = {
     LOG_LEVEL_DEBUG, /**< Logging level */
     LOG_TYPE_STREAM, /**< Logger type */
     "stream", /**< Logger type name */
@@ -331,17 +331,17 @@ Logger global_logger = {
  * and should be used with caution. Avoid calling this function after the
  * global logger has been initialized to prevent unintended side effects.
  */
-void initialize_global_logger(
+void logger_set_global(
     LogLevel log_level,
     LogType log_type,
     const char* log_type_name,
     FILE* file_stream,
     const char* file_path
 ) {
-    global_logger.log_level = log_level;
-    global_logger.log_type = log_type;
-    global_logger.log_type_name = log_type_name;
-    global_logger.file_stream = file_stream;
-    global_logger.file_path = file_path;
-    // WARN: DO NOT REINITIALIZE THE MUTEX
+    logger_global.log_level = log_level;
+    logger_global.log_type = log_type;
+    logger_global.log_type_name = log_type_name;
+    logger_global.file_stream = file_stream;
+    logger_global.file_path = file_path;
+    /// @warning REINITIALIZING THE MUTEX IS UNDEFINED BEHAVIOR!
 }
