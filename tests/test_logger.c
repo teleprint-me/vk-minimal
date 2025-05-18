@@ -25,20 +25,20 @@
 
 #include <stdio.h>
 
-typedef struct LoggerFileTest {
-    LogLevel set_level;
+typedef struct LoggerTestFile {
+    LogLevel logger_level;
     LogLevel message_level;
     const char* message;
     bool should_log; // Should this message appear in the file?
-} LoggerFileTest;
+} LoggerTestFile;
 
 int test_logger_file(TestCase* test) {
-    LoggerFileTest* unit = (LoggerFileTest*) test->unit;
+    LoggerTestFile* unit = (LoggerTestFile*) test->unit;
     const char* temp_file = "test_tmp.log";
     remove(temp_file); // Clean up old file BEFORE creating logger
 
     // Log a message
-    Logger* logger = logger_create(unit->set_level, LOG_TYPE_FILE, temp_file);
+    Logger* logger = logger_create(unit->logger_level, LOG_TYPE_FILE, temp_file);
     logger_message(logger, unit->message_level, "%s", unit->message);
     logger_free(logger);
 
@@ -59,8 +59,8 @@ int test_logger_file(TestCase* test) {
 
     ASSERT(
         found == unit->should_log,
-        "Logger file test failed: set_level=%d message_level=%d expected='%s' got='%s'",
-        unit->set_level,
+        "Logger file test failed: logger_level=%d message_level=%d expected='%s' got='%s'",
+        unit->logger_level,
         unit->message_level,
         unit->should_log ? "present" : "absent",
         found ? "present" : "absent"
@@ -68,59 +68,58 @@ int test_logger_file(TestCase* test) {
     return 0;
 }
 
-int logger_file_test_suite(void) {
-    static LoggerFileTest cases[] = {
+int test_logger_file_suite(void) {
+    static LoggerTestFile cases[] = {
         {LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, "Debug should not log", false},
         {LOG_LEVEL_INFO, LOG_LEVEL_INFO, "Info should log", true},
         {LOG_LEVEL_INFO, LOG_LEVEL_ERROR, "Error should log", true},
     };
 
-    size_t total_tests = sizeof(cases) / sizeof(LoggerFileTest);
+    size_t total_tests = sizeof(cases) / sizeof(LoggerTestFile);
 
     TestCase test_cases[total_tests];
     for (size_t i = 0; i < total_tests; i++) {
         test_cases[i].unit = &cases[i];
-        test_cases[i].index = i + 1;
-        test_cases[i].result = -1;
     }
 
-    TestContext ctx = {
+    TestContext context = {
         .total_tests = total_tests,
-        .test_name = "Logger File Output",
+        .test_name = "Logger Test File",
         .test_cases = test_cases,
     };
 
-    return run_unit_tests(&ctx, test_logger_file, NULL);
+    return run_unit_tests(&context, test_logger_file, NULL);
 }
 
 // Test the explicit initialization of the global logger
-void test_global_logger_initialization() {
-    initialize_global_logger(LOG_LEVEL_WARN, LOG_TYPE_STREAM, "stream", stderr, NULL);
-    LOG(&global_logger, LOG_LEVEL_INFO, "This message should not appear\n");
-    LOG(&global_logger, LOG_LEVEL_WARN, "Global logger warning\n");
-    LOG(&global_logger, LOG_LEVEL_ERROR, "Global logger error\n");
+void test_logger_global_initialization() {
+    logger_set_global(LOG_LEVEL_WARN, LOG_TYPE_STREAM, "stream", stderr, NULL);
+    LOG(&logger_global, LOG_LEVEL_INFO, "This message should not appear");
+    LOG(&logger_global, LOG_LEVEL_WARN, "Global logger warning");
+    LOG(&logger_global, LOG_LEVEL_ERROR, "Global logger error");
 }
 
 // Test lazy initialization and logging behavior
 void test_lazy_initialization_and_logging() {
     Logger* lazy_logger = logger_create(LOG_LEVEL_DEBUG, LOG_TYPE_UNKNOWN, NULL);
-    LOG(lazy_logger, LOG_LEVEL_DEBUG, "Lazy logger debug\n");
-    LOG(lazy_logger, LOG_LEVEL_ERROR, "Lazy logger error\n");
+    LOG(lazy_logger, LOG_LEVEL_DEBUG, "Lazy logger debug");
+    LOG(lazy_logger, LOG_LEVEL_ERROR, "Lazy logger error");
     logger_free(lazy_logger);
 }
 
 // Test logging at different levels
 void test_logging_at_different_levels() {
     Logger* level_logger = logger_create(LOG_LEVEL_INFO, LOG_TYPE_STREAM, NULL);
-    LOG(level_logger, LOG_LEVEL_DEBUG, "Should not log debug\n");
-    LOG(level_logger, LOG_LEVEL_INFO, "Should log info\n");
-    LOG(level_logger, LOG_LEVEL_ERROR, "Should log error\n");
+    LOG(level_logger, LOG_LEVEL_DEBUG, "Should not log debug");
+    LOG(level_logger, LOG_LEVEL_INFO, "Should log info");
+    LOG(level_logger, LOG_LEVEL_ERROR, "Should log error");
     logger_free(level_logger);
 }
 
 int main(void) {
     static TestRegister suites[] = {
-        {"Logger File Output", logger_file_test_suite},
+        {"Logger File", test_logger_file_suite},
+        // {"Logger Global", test_logger_global_suite},
     };
 
     int result = 0;
