@@ -142,7 +142,7 @@ typedef struct LoggerTestFile {
 
 int test_logger_file(TestCase* test) {
     LoggerTestFile* unit = (LoggerTestFile*) test->unit;
-    
+
     int state = file_capture(stderr, file_temp);
 
     Logger* logger = logger_create(unit->logger_level, LOG_TYPE_FILE, file_temp);
@@ -192,11 +192,64 @@ int test_logger_file_suite(void) {
 }
 
 // Test the explicit initialization of the global logger
-void test_logger_global_initialization() {
-    logger_set_global(LOG_LEVEL_WARN, LOG_TYPE_STREAM, "stream", stderr, NULL);
-    LOG(&logger_global, LOG_LEVEL_INFO, "This message should not appear");
-    LOG(&logger_global, LOG_LEVEL_WARN, "Global logger warning");
-    LOG(&logger_global, LOG_LEVEL_ERROR, "Global logger error");
+typedef struct LoggerTestGlobal {
+    LogLevel logger_level; // What level is the global logger set to?
+    LogLevel message_level; // What level is the log message?
+    const char* message;
+    bool should_log; // Should the message be logged, given the logger_level?
+} LoggerTestGlobal;
+
+int test_logger_global(TestCase* test) {
+    LoggerTestGlobal* unit = (LoggerTestGlobal*) test->unit;
+
+    int state = file_capture(stderr, file_temp);
+
+    // Set up global logger to desired level
+    logger_set_global(unit->logger_level, LOG_TYPE_STREAM, "stream", stderr, NULL);
+
+    // Use LOG_* macro (or direct logger_message for even tighter focus)
+    LOG(&logger_global, unit->message_level, "%s", unit->message);
+
+    const bool match = file_match(file_temp, unit->message);
+    file_restore(stderr, file_temp, state);
+
+    logger_set_global(LOG_LEVEL_DEBUG, LOG_TYPE_STREAM, "stream", NULL, NULL); // Reset
+
+    ASSERT(
+        match == unit->should_log,
+        "[LoggerTestGlobal] logger_level=%d, message_level=%d, expected='%s', got='%s'",
+        unit->logger_level,
+        unit->message_level,
+        unit->should_log ? "present" : "absent",
+        match ? "present" : "absent"
+    );
+
+    return 0;
+}
+
+int test_logger_global_suite(void) {
+    static LoggerTestGlobal cases[] = {
+        {LOG_LEVEL_WARN, LOG_LEVEL_INFO, "This message should not appear", false},
+        {LOG_LEVEL_WARN, LOG_LEVEL_WARN, "Global logger warning", true},
+        {LOG_LEVEL_WARN, LOG_LEVEL_ERROR, "Global logger error", true},
+        {LOG_LEVEL_ERROR, LOG_LEVEL_WARN, "Warn should not log at error", false},
+        {LOG_LEVEL_DEBUG, LOG_LEVEL_INFO, "Debug logger: info logs", true},
+    };
+
+    size_t total_tests = sizeof(cases) / sizeof(LoggerTestGlobal);
+
+    TestCase test_cases[total_tests];
+    for (size_t i = 0; i < total_tests; i++) {
+        test_cases[i].unit = &cases[i];
+    }
+
+    TestContext context = {
+        .total_tests = total_tests,
+        .test_name = "Logger Global",
+        .test_cases = test_cases,
+    };
+
+    return run_unit_tests(&context, test_logger_global, NULL);
 }
 
 // Test lazy initialization and logging behavior
@@ -207,19 +260,11 @@ void test_lazy_initialization_and_logging() {
     logger_free(lazy_logger);
 }
 
-// Test logging at different levels
-void test_logging_at_different_levels() {
-    Logger* level_logger = logger_create(LOG_LEVEL_INFO, LOG_TYPE_STREAM, NULL);
-    LOG(level_logger, LOG_LEVEL_DEBUG, "Should not log debug");
-    LOG(level_logger, LOG_LEVEL_INFO, "Should log info");
-    LOG(level_logger, LOG_LEVEL_ERROR, "Should log error");
-    logger_free(level_logger);
-}
-
 int main(void) {
     static TestRegister suites[] = {
         {"Log Level", test_logger_level_suite},
-        {"Log File", test_logger_file_suite},
+        {"Log File",  test_logger_file_suite},
+        {"Logger Global", test_logger_global_suite},
     };
 
     int result = 0;
