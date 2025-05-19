@@ -33,7 +33,7 @@
 
 static const char* file_temp = "tests/temp.log";
 
-int file_capture(FILE* pipe, const char* path) {
+static int file_capture(FILE* pipe, const char* path) {
     remove(path); // Clean up BEFORE reading
     fflush(stderr);
     int state = dup(fileno(pipe));
@@ -43,14 +43,14 @@ int file_capture(FILE* pipe, const char* path) {
     return state;
 }
 
-void file_restore(FILE* pipe, const char* path, int state) {
+static void file_restore(FILE* pipe, const char* path, int state) {
     fflush(pipe);
     dup2(state, fileno(pipe));
     close(state);
     remove(path); // Clean up AFTER reading
 }
 
-bool file_match(const char* path, const char* message) {
+static bool file_match(const char* path, const char* message) {
     // Read back file and check if the message appears
     FILE* fp = fopen(path, "r");
     bool match = false;
