@@ -66,6 +66,18 @@ Runs the Vulkan example binary with AddressSanitizer (ASAN) enabled.
 chmod +x vk.sh && ./vk.sh
 ```
 
+### 4. Unit Testing
+
+Run unit tests using CTest after building:
+
+```sh
+ctest --rerun-failed --output-on-failure --test-dir build/
+```
+
+- Source files for unit tests are located in the `tests/` directory.
+- Tests are built in `build/tests/`.
+- You can also run test binaries directly from `build/tests/` for targeted debugging.
+
 ## Usage
 
 After building, binaries can be found in `build/examples/`.
