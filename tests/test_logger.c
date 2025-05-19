@@ -1,23 +1,34 @@
-/*
+/**
  * Copyright © 2024 Austin Berrio
  *
- * tests/test_logger.c
+ * @file tests/test_logger.c
+ * @brief Automated unit tests for the thread-safe logger implementation.
  *
  * Build:
  *   gcc -o test_logger source/logger.c tests/test_logger.c -lpthread
- * Run:
- *   ./test_logger
- * Expected output:
- *   [WARN] Global logger warning
- *   [ERROR] Global logger error
- *   [DEBUG] Lazy logger debug
- *   [ERROR] Lazy logger error
- *   [INFO] Should log info
- *   [ERROR] Should log error
- *   Finished all tests!
- * Run: cat test.log
- * Expected output:
- *   [DEBUG] Logging to a file: 1, 2, 3... Done!
+ *
+ * Manual Run:
+ *   ./build/tests/test_logger
+ *   # Displays detailed pass/fail status for each logger test suite.
+ *
+ * Automated Run (CTest):
+ *   ctest --output-on-failure --test-dir build/
+ *   # Integrates with CMake/CTest; works in CI and locally.
+ *
+ * Output:
+ *   [INFO] ... [RUN] <suite>
+ *   [INFO] ... [RESULT] <suite>: <N/N> tests passed
+ *   [PASS]/[FAIL] suite status
+ *   # See test_logger output for detailed logs and any assertion failures.
+ *
+ * Temp Files:
+ *   Each test writes logs to 'temp.log' in the working directory for verification.
+ *   Files are created and removed automatically; no manual cleanup required.
+ *
+ * Notes:
+ *   - Tests cover: log level filtering, file logging, global logger, and lazy logger initialization.
+ *   - No manual inspection required; all assertions are automated.
+ *   - To check actual log file output, inspect 'temp.log' after manual test run.
  */
 
 #include "core/logger.h"
