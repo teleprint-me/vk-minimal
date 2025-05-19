@@ -31,7 +31,7 @@
  * @section File Utilities
  */
 
-static const char* file_temp = "tests/temp.log";
+static const char* file_temp = "temp.log";
 
 static int file_capture(FILE* pipe, const char* path) {
     remove(path); // Clean up BEFORE reading
