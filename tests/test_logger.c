@@ -259,18 +259,71 @@ int test_logger_global_suite(void) {
  * @section Test Lazy Initialization
  */
 
-void test_lazy_initialization_and_logging() {
-    Logger* lazy_logger = logger_create(LOG_LEVEL_DEBUG, LOG_TYPE_UNKNOWN, NULL);
-    LOG(lazy_logger, LOG_LEVEL_DEBUG, "Lazy logger debug");
-    LOG(lazy_logger, LOG_LEVEL_ERROR, "Lazy logger error");
+typedef struct LoggerTestLazy {
+    LogLevel log_level; // Level to create the logger with
+    LogLevel message_level;
+    const char* message;
+    bool should_log;
+} LoggerTestLazy;
+
+int test_logger_lazy(TestCase* test) {
+    LoggerTestLazy* unit = (LoggerTestLazy*) test->unit;
+
+    int state = file_capture(stderr, file_temp);
+
+    Logger* lazy_logger = logger_create(unit->log_level, LOG_TYPE_UNKNOWN, NULL);
+    if (!lazy_logger) {
+        LOG_ERROR("[LoggerTestLazy] Failed to create a logger instance!");
+        file_restore(stderr, file_temp, state);
+        return 1;
+    }
+    LOG(lazy_logger, unit->message_level, "%s", unit->message);
     logger_free(lazy_logger);
+
+    const bool match = file_match(file_temp, unit->message);
+    file_restore(stderr, file_temp, state);
+
+    ASSERT(
+        match == unit->should_log,
+        "[LoggerTestLazy] log_level=%d, message_level=%d, expected='%s', got='%s'",
+        unit->log_level,
+        unit->message_level,
+        unit->should_log ? "present" : "absent",
+        match ? "present" : "absent"
+    );
+
+    return 0;
+}
+
+int test_logger_lazy_suite(void) {
+    static LoggerTestLazy cases[] = {
+        {LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "Lazy logger debug", true},
+        {LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, "Lazy logger error", true},
+        {LOG_LEVEL_INFO, LOG_LEVEL_DEBUG, "This should not log", false},
+    };
+
+    size_t total_tests = sizeof(cases) / sizeof(LoggerTestLazy);
+
+    TestCase test_cases[total_tests];
+    for (size_t i = 0; i < total_tests; i++) {
+        test_cases[i].unit = &cases[i];
+    }
+
+    TestContext context = {
+        .total_tests = total_tests,
+        .test_name = "Logger Lazy Initialization",
+        .test_cases = test_cases,
+    };
+
+    return run_unit_tests(&context, test_logger_lazy, NULL);
 }
 
 int main(void) {
     static TestRegister suites[] = {
         {"Log Level", test_logger_level_suite},
-        {"Log File",  test_logger_file_suite},
+        {"Log File", test_logger_file_suite},
         {"Logger Global", test_logger_global_suite},
+        {"Logger Lazy Initialization", test_logger_lazy_suite},
     };
 
     int result = 0;
