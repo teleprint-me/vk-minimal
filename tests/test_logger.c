@@ -20,8 +20,8 @@
  *   [DEBUG] Logging to a file: 1, 2, 3... Done!
  */
 
-#include "core/unit_test.h"
 #include "core/logger.h"
+#include "core/unit_test.h"
 
 #include <unistd.h>
 #include <fcntl.h>
