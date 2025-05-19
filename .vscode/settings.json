@@ -50,6 +50,7 @@
     "*.tcss": "jinja-css",
     "*.h": "c",
     "coroutine": "c",
-    "random": "c"
+    "random": "c",
+    "exception": "c"
   }
 }
