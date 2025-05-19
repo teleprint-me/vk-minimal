@@ -191,7 +191,10 @@ int test_logger_file_suite(void) {
     return run_unit_tests(&context, test_logger_file, NULL);
 }
 
-// Test the explicit initialization of the global logger
+/**
+ * @section Test Global Logger
+ */
+
 typedef struct LoggerTestGlobal {
     LogLevel logger_level; // What level is the global logger set to?
     LogLevel message_level; // What level is the log message?
@@ -252,7 +255,10 @@ int test_logger_global_suite(void) {
     return run_unit_tests(&context, test_logger_global, NULL);
 }
 
-// Test lazy initialization and logging behavior
+/**
+ * @section Test Lazy Initialization
+ */
+
 void test_lazy_initialization_and_logging() {
     Logger* lazy_logger = logger_create(LOG_LEVEL_DEBUG, LOG_TYPE_UNKNOWN, NULL);
     LOG(lazy_logger, LOG_LEVEL_DEBUG, "Lazy logger debug");
