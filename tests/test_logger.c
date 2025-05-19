@@ -23,7 +23,115 @@
 #include "core/unit_test.h"
 #include "core/logger.h"
 
+#include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
+
+/**
+ * @section File Utilities
+ */
+
+static const char* file_temp = "tests/temp.log";
+
+int file_capture(FILE* pipe, const char* path) {
+    remove(path); // Clean up BEFORE reading
+    fflush(stderr);
+    int state = dup(fileno(pipe));
+    int file = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    dup2(file, fileno(pipe));
+    close(file);
+    return state;
+}
+
+void file_restore(FILE* pipe, const char* path, int state) {
+    fflush(pipe);
+    dup2(state, fileno(pipe));
+    close(state);
+    remove(path); // Clean up AFTER reading
+}
+
+bool file_match(const char* path, const char* message) {
+    // Read back file and check if the message appears
+    FILE* fp = fopen(path, "r");
+    bool match = false;
+    if (fp) {
+        char line[512];
+        while (fgets(line, sizeof(line), fp)) {
+            if (strstr(line, message)) {
+                match = true;
+                break;
+            }
+        }
+        fclose(fp);
+    }
+    return match;
+}
+
+/**
+ * @section Test Log Levels
+ */
+
+typedef struct LoggerTestLevel {
+    const LogLevel level;
+    const char* message;
+    const bool expected;
+} LoggerTestLevel;
+
+int test_logger_level(TestCase* test) {
+    LoggerTestLevel* unit = (LoggerTestLevel*) test->unit;
+
+    int state = file_capture(stderr, file_temp);
+
+    Logger* logger = logger_create(LOG_LEVEL_WARN, LOG_TYPE_STREAM, NULL);
+    if (!logger) {
+        LOG_ERROR("[LoggerTestLevel] Failed to create a logger instance!");
+        return 1;
+    }
+    const bool result = logger_message(logger, unit->level, "%s\n", unit->message);
+    logger_free(logger);
+
+    file_restore(stderr, file_temp, state);
+
+    ASSERT(
+        result == unit->expected,
+        "[LoggerTestLevel] level=%d, message=%d expected='%s' got='%s'",
+        unit->level,
+        unit->message,
+        unit->expected ? "true" : "false",
+        result ? "true" : "false"
+    );
+
+    return 0;
+}
+
+int test_logger_level_suite(void) {
+    static LoggerTestLevel cases[] = {
+        {LOG_LEVEL_INFO, "This message should not appear", false},
+        {LOG_LEVEL_WARN, "Global logger warning", true},
+        {LOG_LEVEL_ERROR, "Global logger error", true},
+    };
+
+    size_t total_tests = sizeof(cases) / sizeof(LoggerTestLevel);
+
+    TestCase test_cases[total_tests];
+    for (size_t i = 0; i < total_tests; i++) {
+        test_cases[i].unit = &cases[i];
+    }
+
+    TestContext context = {
+        .total_tests = total_tests,
+        .test_name = "Logger Test Level",
+        .test_cases = test_cases,
+    };
+
+    // Return test suite results
+    return run_unit_tests(&context, test_logger_level, NULL);
+    ;
+}
+
+/**
+ * @section Test Log Files
+ */
 
 typedef struct LoggerTestFile {
     LogLevel logger_level;
@@ -34,37 +142,29 @@ typedef struct LoggerTestFile {
 
 int test_logger_file(TestCase* test) {
     LoggerTestFile* unit = (LoggerTestFile*) test->unit;
-    const char* temp_file = "test_tmp.log";
-    remove(temp_file); // Clean up old file BEFORE creating logger
+    
+    int state = file_capture(stderr, file_temp);
 
-    // Log a message
-    Logger* logger = logger_create(unit->logger_level, LOG_TYPE_FILE, temp_file);
+    Logger* logger = logger_create(unit->logger_level, LOG_TYPE_FILE, file_temp);
+    if (!logger) {
+        LOG_ERROR("[LoggerTestFile] Failed to create a logger instance!");
+        return 1;
+    }
     logger_message(logger, unit->message_level, "%s", unit->message);
     logger_free(logger);
 
-    // Read back file and check if the message appears
-    FILE* fp = fopen(temp_file, "r");
-    bool found = false;
-    if (fp) {
-        char line[512];
-        while (fgets(line, sizeof(line), fp)) {
-            if (strstr(line, unit->message)) {
-                found = true;
-                break;
-            }
-        }
-        fclose(fp);
-    }
-    remove(temp_file); // Clean up AFTER reading
+    const bool match = file_match(file_temp, unit->message);
+    file_restore(stderr, file_temp, state);
 
     ASSERT(
-        found == unit->should_log,
-        "Logger file test failed: logger_level=%d message_level=%d expected='%s' got='%s'",
+        match == unit->should_log,
+        "[LoggerTestFile] logger_level=%d, message_level=%d, expected='%s', got='%s'",
         unit->logger_level,
         unit->message_level,
         unit->should_log ? "present" : "absent",
-        found ? "present" : "absent"
+        match ? "present" : "absent"
     );
+
     return 0;
 }
 
@@ -118,8 +218,8 @@ void test_logging_at_different_levels() {
 
 int main(void) {
     static TestRegister suites[] = {
-        {"Logger File", test_logger_file_suite},
-        // {"Logger Global", test_logger_global_suite},
+        {"Log Level", test_logger_level_suite},
+        {"Log File", test_logger_file_suite},
     };
 
     int result = 0;
