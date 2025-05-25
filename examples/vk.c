@@ -9,13 +9,48 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/**
+ * Create a Vulkan Instance
+ */
+
+VkApplicationInfo vk_create_app_info(void) {
+    VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
+    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    app_info.pApplicationName = "vk-minimal";
+    app_info.applicationVersion = VK_API_VERSION_1_4;
+    app_info.pEngineName = "vk-compute";
+    app_info.engineVersion = VK_API_VERSION_1_4;
+    app_info.apiVersion = VK_API_VERSION_1_4;
+    return app_info;
+}
+
+VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
+    VkInstanceCreateInfo instance_info = {0};
+    // Create instance info
+    // No extensions or validation layers for now
+    instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_info.pApplicationInfo = app_info;
+    return instance_info;
+}
+
+VkInstance vk_create_instance(VkInstanceCreateInfo* instance_info, const VkAllocationCallbacks* allocator) {
+    VkInstance instance = VK_NULL_HANDLE;
+    VkResult result = vkCreateInstance(instance_info, allocator, &instance);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to create Vulkan instance: %d", result);
+        return VK_NULL_HANDLE;
+    }
+    LOG_INFO("Vulkan instance created successfully.");
+    return instance;
+}
+
 int main(void) {
     /**
      * Lease Allocator for sanely tracking memory allocations.
      */
 
-    LeaseOwner* vk_alloc_owner = lease_create_owner(2048); // scoped
-    VkAllocationCallbacks vk_alloc = vk_lease_callbacks(vk_alloc_owner);
+    LeaseOwner* vk_alloc_owner = lease_create_owner(1024); // memory region tracker
+    VkAllocationCallbacks vk_alloc = vk_lease_callbacks(vk_alloc_owner); // attach and set tracker
 
     // Result codes and handles
     VkResult result;
@@ -24,36 +59,12 @@ int main(void) {
      * Create a Vulkan Instance
      */
 
-    VkApplicationInfo app_info = {0};
-    VkInstanceCreateInfo instance_info = {0};
-    VkInstance instance = VK_NULL_HANDLE;
-
-    app_info = (VkApplicationInfo) {
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "vk-minimal",
-        .applicationVersion = VK_API_VERSION_1_4,
-        .pEngineName = "vk-engine",
-        .engineVersion = VK_API_VERSION_1_4,
-        .apiVersion = VK_API_VERSION_1_4,
-    };
-
-    // No extensions or validation layers for now
-    instance_info = (VkInstanceCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pApplicationInfo = &app_info,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = NULL,
-    };
-
-    result = vkCreateInstance(&instance_info, &vk_alloc, &instance);
-    if (result != VK_SUCCESS) {
-        LOG_ERROR("Failed to create Vulkan instance: %d", result);
+    VkApplicationInfo app_info = vk_create_app_info();
+    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
+    VkInstance instance = vk_create_instance(&instance_info, &vk_alloc);
+    if (instance == VK_NULL_HANDLE) {
         goto cleanup_lease;
     }
-
-    LOG_INFO("Vulkan instance created successfully.");
 
     /**
      * Create a Vulkan Physical Device
@@ -176,33 +187,32 @@ int main(void) {
      * Create a Vulkan Logical Device
      */
 
-    static const float queue_priority = 1.0f;
+    static const float queue_priorities[1] = {1.0f};
     VkDeviceQueueCreateInfo queue_info = {0};
-    VkDeviceCreateInfo device_info = {0};
+    VkPhysicalDeviceFeatures features = {0};
 
-    VkDevice device = VK_NULL_HANDLE;
-    VkQueue compute_queue = VK_NULL_HANDLE;
-
-    // The compute queue family we want access to.
-    queue_info = (VkDeviceQueueCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = compute_queue_family_index,
-        .queueCount = 1,
-        .pQueuePriorities = &queue_priority,
-    };
-
-    device_info = (VkDeviceCreateInfo) {
+    VkDeviceCreateInfo device_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = NULL,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queue_info,
         .enabledExtensionCount = 0,
         .ppEnabledExtensionNames = NULL,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .pEnabledFeatures = NULL, // VkPhysicalDeviceFeatures later if needed
+        .pEnabledFeatures = &features, // or see note below
     };
 
-    result = vkCreateDevice(selected_physical_device, &device_info, &vk_alloc, &device);
+    VkDevice device = VK_NULL_HANDLE;
+    VkQueue compute_queue = VK_NULL_HANDLE;
+
+    // The compute queue family we want access to.
+    queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_info.queueFamilyIndex = compute_queue_family_index;
+    queue_info.queueCount = 1;
+    queue_info.pQueuePriorities = queue_priorities;
+
+    result = vkCreateDevice(selected_physical_device, &device_info, NULL, &device);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         goto cleanup_instance;
