@@ -37,6 +37,7 @@ add_library(vk-minimal SHARED
     "src/core/unit_test.c"
     "src/core/hash_table.c"
     "src/core/lease.c"
+    "src/vk/validation.c"
     "src/vk/alloc.c"
     "src/vk/shader.c"
 )
