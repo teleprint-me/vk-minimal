@@ -29,10 +29,17 @@ typedef struct Layer {
     LayerAvailable* available;
 } Layer;
 
-LayerRequest*
-layer_create_request(LeaseOwner* owner, const char* const* names, const uint32_t count) {
-    LayerRequest* request
-        = lease_alloc_owned_address(owner, sizeof(LayerRequest), alignof(LayerRequest));
+LayerRequest* layer_create_request(
+    LeaseOwner* owner, const char* const* names, const uint32_t count
+) {
+    if (!owner || !names || !(*names) || 0 == count) {
+        LOG_ERROR("Invalid arguments (owner=%p, layers=%p, layer_count=%u)", owner, names, count);
+        return NULL;
+    }
+
+    LayerRequest* request = lease_alloc_owned_address(
+        owner, sizeof(LayerRequest), alignof(LayerRequest)
+    );
     if (!request) {
         return NULL;
     }
@@ -46,13 +53,14 @@ layer_create_request(LeaseOwner* owner, const char* const* names, const uint32_t
 }
 
 LayerAvailable* layer_create_available(LeaseOwner* owner, LayerRequest* request) {
-    if (!request || !request->names || !(*request->names) || 0 == request->count) {
+    if (!owner || !request || !request->names || !(*request->names) || 0 == request->count) {
         LOG_ERROR("Invalid arguments (layers=%p, layer_count=%u)", request->names, request->count);
         return NULL;
     }
 
-    LayerAvailable* available
-        = lease_alloc_owned_address(owner, sizeof(LayerAvailable), alignof(LayerAvailable));
+    LayerAvailable* available = lease_alloc_owned_address(
+        owner, sizeof(LayerAvailable), alignof(LayerAvailable)
+    );
     if (!available) {
         return NULL;
     }
@@ -113,37 +121,51 @@ Layer* layer_create(LeaseOwner* owner, const char* const* names, const uint32_t 
     return layer;
 }
 
-bool layer_validate(Layer* layer) {
-    for (uint32_t i = 0; i < layer->request->count; ++i) {
-        bool found = false;
-        for (uint32_t j = 0; j < layer->available->count; ++j) {
-            if (strcmp(layer->request->names[i], layer->available->properties[j].layerName)
-                == 0) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            LOG_WARN("Requested layer not available: %s", layer->request->names[i]);
-            return false;
-        }
+bool layer_match_index(Layer* layer, uint32_t index, VkLayerProperties* out) {
+    if (!layer || !layer->available || !out) {
+        return false;
     }
+    if (index >= layer->available->count) {
+        return false;
+    }
+    *out = layer->available->properties[index];
     return true;
 }
 
-VkLayerProperties* layer_query() {
-    return NULL; // stub
+bool layer_match_name(Layer* layer, const char* name, VkLayerProperties* out) {
+    if (!layer || !layer->available || !name || !out) {
+        return false;
+    }
+    for (uint32_t i = 0; i < layer->available->count; ++i) {
+        if (0 == strcmp(name, layer->available->properties[i].layerName)) {
+            *out = layer->available->properties[i];
+            return true;
+        }
+    }
+    return false;
 }
 
-void layer_log(Layer* layer) {
-    LOG_INFO("[VkLayerProperties] request->count=%zu", layer->request->count);
-    for (uint32_t i = 0; i < layer->request->count; i++) {
-        LOG_INFO("[VkLayerProperties] request->names[%zu]=%s", i, layer->request->names[i]);
+bool layer_match_request(Layer* layer) {
+    for (uint32_t i = 0; i < layer->request->count; ++i) {
+        VkLayerProperties props = {0};
+        if (layer_match_name(layer, layer->request->names[i], &props)) {
+            LOG_DEBUG("Requested layer(s) available: name=%s, desc=%s", props.layerName, props.description);
+            return true;
+        }
     }
-    LOG_INFO("Property Count: %zu", layer->available->count);
+    LOG_WARN("Requested layer(s) not available.");
+    return false;
+}
+
+void layer_log_info(Layer* layer) {
+    LOG_INFO("[VkLayerProperties] [Request] count=%zu", layer->request->count);
+    for (uint32_t i = 0; i < layer->request->count; i++) {
+        LOG_INFO("[VkLayerProperties] [Request] index=%zu, name=%s", i, layer->request->names[i]);
+    }
+    LOG_INFO("[VkLayerProperties] [Available] count=%zu", layer->available->count);
     for (uint32_t i = 0; i < layer->available->count; i++) {
         LOG_INFO(
-            "Property: index=%zu, name=%s, description=%s",
+            "[VkLayerProperties] [Available] index=%zu, name=%s, description=%s",
             i,
             layer->available->properties[i].layerName,
             layer->available->properties[i].description
@@ -158,11 +180,26 @@ int main(void) {
     if (!layer) {
         return EXIT_FAILURE;
     }
-    layer_log(layer);
-    if (!layer_validate(layer)) {
+    layer_log_info(layer);
+    if (!layer_match_request(layer)) {
         LOG_ERROR("One or more requested layers are not available.");
     }
-    LOG_INFO("Selected layer: %s", layers[0]);
+
+    // Lookup by name
+    VkLayerProperties prop;
+    if (layer_match_name(layer, "VK_LAYER_KHRONOS_validation", &prop)) {
+        LOG_INFO("Found property (by name): %s - %s", prop.layerName, prop.description);
+    } else {
+        LOG_WARN("Property by name not found.");
+    }
+
+    // Lookup by index
+    if (layer_match_index(layer, 0, &prop)) {
+        LOG_INFO("Found property (by index 0): %s - %s", prop.layerName, prop.description);
+    } else {
+        LOG_WARN("Property by index not found.");
+    }
+
     lease_free_owner(owner); // free everything
     return EXIT_SUCCESS;
 }
