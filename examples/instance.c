@@ -22,7 +22,7 @@ VkResult vk_validation_layer_support(const char* const* layers, uint32_t layer_c
 
     VkResult result;
     uint32_t property_count = 0;
-    result = vkEnumerateInstanceLayerProperties(&property_count, VK_NULL_HANDLE);
+    result = vkEnumerateInstanceLayerProperties(&property_count, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("Failed to enumerate layer property count (error code: %u)", result);
         return result;
@@ -32,7 +32,7 @@ VkResult vk_validation_layer_support(const char* const* layers, uint32_t layer_c
         return VK_ERROR_LAYER_NOT_PRESENT;
     }
 
-    VkLayerProperties* properties = memory_aligned_alloc(property_count, alignof(VkLayerProperties));
+    VkLayerProperties* properties = memory_aligned_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
     if (!properties) {
         LOG_ERROR("Memory allocation failed for layer properties");
         return VK_ERROR_OUT_OF_HOST_MEMORY;
