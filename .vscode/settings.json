@@ -51,6 +51,8 @@
     "*.h": "c",
     "coroutine": "c",
     "random": "c",
-    "exception": "c"
+    "exception": "c",
+    "chrono": "c",
+    "functional": "c"
   }
 }
