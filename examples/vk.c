@@ -33,13 +33,17 @@ VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
     return instance_info;
 }
 
-VkInstance vk_create_instance(VkInstanceCreateInfo* instance_info, const VkAllocationCallbacks* allocator) {
+VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
+    VkApplicationInfo app_info = vk_create_app_info();
+    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
     VkInstance instance = VK_NULL_HANDLE;
-    VkResult result = vkCreateInstance(instance_info, allocator, &instance);
+
+    VkResult result = vkCreateInstance(&instance_info, allocator, &instance);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create Vulkan instance: %d", result);
         return VK_NULL_HANDLE;
     }
+
     LOG_INFO("Vulkan instance created successfully.");
     return instance;
 }
@@ -59,9 +63,7 @@ int main(void) {
      * Create a Vulkan Instance
      */
 
-    VkApplicationInfo app_info = vk_create_app_info();
-    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
-    VkInstance instance = vk_create_instance(&instance_info, &vk_alloc);
+    VkInstance instance = vk_create_instance(&vk_alloc);
     if (instance == VK_NULL_HANDLE) {
         goto cleanup_lease;
     }
