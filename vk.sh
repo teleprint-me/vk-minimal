@@ -61,4 +61,9 @@ export LSAN_OPTIONS LD_PRELOAD
 #   - Valgrind can be used as a backup to verify memory integrity.
 
 # Run the Vulkan example binary
-./build/examples/vk
+if [[ ! $# -gt 0 ]]; then
+    echo "Requires a vulkan compatible binary!"
+    exit 1
+fi
+
+./"$1"
