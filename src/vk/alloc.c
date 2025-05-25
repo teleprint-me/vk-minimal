@@ -92,10 +92,10 @@ void VKAPI_CALL vk_lease_internal_alloc(
     void* pUserData, size_t size, VkInternalAllocationType type, VkSystemAllocationScope scope
 ) {
 #ifndef ENABLE_DEBUG
-(void) pUserData;
-(void) size;
-(void) type;
-(void) scope;
+    (void) pUserData;
+    (void) size;
+    (void) type;
+    (void) scope;
 #endif
 #ifdef ENABLE_DEBUG
     LOG_DEBUG(
@@ -108,10 +108,10 @@ void VKAPI_CALL vk_lease_internal_free(
     void* pUserData, size_t size, VkInternalAllocationType type, VkSystemAllocationScope scope
 ) {
 #ifndef ENABLE_DEBUG
-(void) pUserData;
-(void) size;
-(void) type;
-(void) scope;
+    (void) pUserData;
+    (void) size;
+    (void) type;
+    (void) scope;
 #endif
 #ifdef ENABLE_DEBUG
     LOG_DEBUG(
@@ -121,10 +121,12 @@ void VKAPI_CALL vk_lease_internal_free(
 }
 
 VkAllocationCallbacks VKAPI_CALL vk_lease_callbacks(LeaseOwner* owner) {
-    return (VkAllocationCallbacks) {.pUserData = owner, // or pass this dynamically
-                                    .pfnAllocation = vk_lease_alloc,
-                                    .pfnReallocation = vk_lease_realloc,
-                                    .pfnFree = vk_lease_free,
-                                    .pfnInternalAllocation = vk_lease_internal_alloc,
-                                    .pfnInternalFree = vk_lease_internal_free};
+    return (VkAllocationCallbacks) {
+        .pUserData = owner, // or pass this dynamically
+        .pfnAllocation = vk_lease_alloc,
+        .pfnReallocation = vk_lease_realloc,
+        .pfnFree = vk_lease_free,
+        .pfnInternalAllocation = vk_lease_internal_alloc,
+        .pfnInternalFree = vk_lease_internal_free
+    };
 }
