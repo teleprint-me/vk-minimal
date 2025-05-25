@@ -1,4 +1,5 @@
 set(EXAMPLES
+    "instance"
     "pt" # POSIX Threads
     "vk" # Vulkan
 )
