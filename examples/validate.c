@@ -77,6 +77,23 @@ LayerProperty* layer_create_property(LeaseOwner* owner, Layer* layer) {
     return property;
 }
 
+bool layer_validate(Layer* requested, LayerProperty* available) {
+    for (uint32_t i = 0; i < requested->count; ++i) {
+        bool found = false;
+        for (uint32_t j = 0; j < available->count; ++j) {
+            if (strcmp(requested->names[i], available->layers[j].layerName) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            LOG_WARN("Requested layer not available: %s", requested->names[i]);
+            return false;
+        }
+    }
+    return true;
+}
+
 void layer_log(LayerProperty* property) {
     LOG_INFO("Supported Property Count: %zu", property->count);
     for (uint32_t i = 0; i < property->count; i++) {
@@ -95,6 +112,10 @@ int main(void) {
     Layer* layer = layer_create(owner, validation_layers, VALIDATION_LAYER_COUNT);
     LayerProperty* property = layer_create_property(owner, layer);
     layer_log(property);
+    if (!layer_validate(layer, property)) {
+        LOG_ERROR("One or more requested layers are not available.");
+    }
+    LOG_INFO("Selected layer: %s", validation_layers[0]);
     lease_free_owner(owner); // free everything
     return 0;
 }
