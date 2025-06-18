@@ -2,86 +2,23 @@
 #include "core/logger.h"
 #include "core/memory.h"
 #include "allocator/freelist.h"
+#include "vk/validation.h"
+#include "vk/extension.h"
 
 #include <vulkan/vulkan.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 
+#define VALIDATION_LAYER_COUNT 1
+#define EXTENSION_COUNT 1
+
+const char* const VALIDATION_LAYERS[VALIDATION_LAYER_COUNT] = {"VK_LAYER_KHRONOS_validation"};
+const char* const INSTANCE_EXTENSIONS[EXTENSION_COUNT] = {"VK_EXT_debug_utils"};
+
 /**
  * Create a Vulkan Instance
  */
-
-#define VALIDATION_LAYER_COUNT 1 /// @warning Cannot be a variable
-const char* const validation_layers[VALIDATION_LAYER_COUNT] = {"VK_LAYER_KHRONOS_validation"};
-
-typedef struct InstanceValidation {
-    const uint32_t count;
-    const char** layers;
-} InstanceValidation;
-
-typedef struct InstanceValidationProperties {
-    uint32_t count;
-    VkLayerProperties* properties;
-} InstanceValidationProperties;
-
-bool vk_validation_layer_support(const char* const* layers, uint32_t layer_count) {
-    if (!layers || !(*layers) || 0 == layer_count) {
-        LOG_ERROR("Invalid arguments (layers=%p, layer_count=%u)", layers, layer_count);
-        return false;
-    }
-
-    VkResult result;
-    uint32_t property_count = 0;
-    result = vkEnumerateInstanceLayerProperties(&property_count, NULL);
-    if (VK_SUCCESS != result) {
-        LOG_ERROR("Failed to enumerate layer property count (error code: %u)", result);
-        return false;
-    }
-    if (0 == property_count) {
-        LOG_ERROR("No validation layers available");
-        return false;
-    }
-
-    VkLayerProperties* properties
-        = memory_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
-    if (!properties) {
-        LOG_ERROR("Memory allocation failed for layer properties");
-        return false;
-    }
-
-    result = vkEnumerateInstanceLayerProperties(&property_count, properties);
-    if (VK_SUCCESS != result) {
-        LOG_ERROR("Failed to enumerate layer properties (error code: %u)", result);
-        free(properties);
-        return false;
-    }
-
-    LOG_INFO("Supported Property Count: %zu", property_count);
-    for (uint32_t i = 0; i < property_count; i++) {
-        LOG_INFO("Supported Property: index=%zu, name='%s'", i, properties[i].layerName);
-    }
-
-    // Check to see if the available layers match the requested layers.
-    for (uint32_t i = 0; i < layer_count; ++i) {
-        bool layer_found = false;
-        for (uint32_t j = 0; j < property_count; ++j) {
-            if (0 == strcmp(layers[i], properties[j].layerName)) {
-                LOG_INFO("Selected Property: index=%zu, name='%s'", i, properties[j].layerName);
-                layer_found = true;
-                break;
-            }
-        }
-        if (!layer_found) {
-            LOG_ERROR("Validation layer not found: %s", layers[i]);
-            free(properties);
-            return false;
-        }
-    }
-
-    free(properties);
-    return true;
-}
 
 uint32_t vk_api_version(void) {
     uint32_t apiVersion;
@@ -127,30 +64,35 @@ void vk_log_app_info(VkApplicationInfo* app_info) {
     );
 }
 
-VkInstanceCreateInfo vk_create_instance_info(
-    VkApplicationInfo* app_info, const char* const* layers, uint32_t layer_count
-) {
+VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
     VkInstanceCreateInfo instance_info = {0};
-
-    // Create instance info: No extensions, unless required, for now
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
 
-    if (!vk_validation_layer_support(layers, layer_count)) {
-        return instance_info;
+    VkcValidationLayer* validation
+        = vkc_validation_layer_create(VALIDATION_LAYERS, VALIDATION_LAYER_COUNT, 1024);
+    if (validation && vkc_validation_layer_match_request(validation)) {
+        LOG_DEBUG("Validation layer check succeeded");
+        instance_info.enabledLayerCount = validation->request->count;
+        instance_info.ppEnabledLayerNames = validation->request->names;
     }
 
-    instance_info.enabledLayerCount = layer_count;
-    instance_info.ppEnabledLayerNames = layers;
+    VkcExtension* extension = vkc_extension_create(INSTANCE_EXTENSIONS, EXTENSION_COUNT, 1024);
+    if (extension && vkc_extension_match_request(extension)) {
+        LOG_DEBUG("Extension check succeeded");
+        instance_info.enabledExtensionCount = extension->request->count;
+        instance_info.ppEnabledExtensionNames = extension->request->names;
+    }
+
+    vkc_extension_free(extension);
+    vkc_validation_layer_free(validation);
     return instance_info;
 }
 
-VkInstance vk_create_instance(
-    const char* const* layers, uint32_t layer_count, const VkAllocationCallbacks* allocator
-) {
+VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
     uint32_t api_version = vk_api_version();
     VkApplicationInfo app_info = vk_create_app_info("instance-app", "No Engine", api_version);
-    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info, layers, layer_count);
+    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
     VkInstance instance = VK_NULL_HANDLE;
 
     VkResult result = vkCreateInstance(&instance_info, allocator, &instance);
@@ -167,7 +109,7 @@ VkInstance vk_create_instance(
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-    VkInstance instance = vk_create_instance(validation_layers, VALIDATION_LAYER_COUNT, NULL);
+    VkInstance instance = vk_create_instance(NULL);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         return EXIT_FAILURE;
