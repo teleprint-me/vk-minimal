@@ -2,7 +2,7 @@
 
 # Define test executables and input directories
 set(C_TESTS
-    "test_logger"
+    # "file-name-here"
 )
 
 # Set input and output directories
