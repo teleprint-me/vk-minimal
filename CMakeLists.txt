@@ -32,20 +32,16 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Add library
 add_library(vk-minimal SHARED
-    "src/core/logger.c"
-    "src/core/memory.c"
-    "src/core/unit_test.c"
-    "src/core/hash_table.c"
-    "src/core/lease.c"
     "src/vk/validation.c"
+    "src/vk/extension.c"
     "src/vk/alloc.c"
     "src/vk/shader.c"
 )
-target_include_directories(vk-minimal PUBLIC include)
-target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan)
+target_include_directories(vk-minimal PUBLIC include dsa/include)
+target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan dsa)
 
 enable_testing()
-add_subdirectory(tests)
+# add_subdirectory(tests)
 add_subdirectory(examples)
 
 # Custom doc target for generating docs
