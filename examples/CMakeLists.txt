@@ -1,5 +1,6 @@
 set(EXAMPLES
     "validate"
+    "extend"
     "instance"
     "pt" # POSIX Threads
     "vk" # Vulkan
