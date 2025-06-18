@@ -1,6 +1,7 @@
 // examples/instance.c
 #include "core/logger.h"
 #include "core/memory.h"
+#include "allocator/freelist.h"
 
 #include <vulkan/vulkan.h>
 
@@ -42,7 +43,8 @@ bool vk_validation_layer_support(const char* const* layers, uint32_t layer_count
         return false;
     }
 
-    VkLayerProperties* properties = memory_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
+    VkLayerProperties* properties
+        = memory_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
     if (!properties) {
         LOG_ERROR("Memory allocation failed for layer properties");
         return false;
@@ -90,7 +92,8 @@ uint32_t vk_api_version(void) {
     return apiVersion;
 }
 
-VkApplicationInfo vk_create_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
+VkApplicationInfo
+vk_create_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
     VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = app_name;
@@ -103,13 +106,15 @@ VkApplicationInfo vk_create_app_info(const char* app_name, const char* app_engin
 
 void vk_log_app_info(VkApplicationInfo* app_info) {
     LOG_INFO("Application Name: %s", app_info->pApplicationName);
-    LOG_INFO("Application Version: %u.%u.%u",
+    LOG_INFO(
+        "Application Version: %u.%u.%u",
         VK_VERSION_MAJOR(app_info->applicationVersion),
         VK_VERSION_MINOR(app_info->applicationVersion),
         VK_VERSION_PATCH(app_info->applicationVersion)
     );
     LOG_INFO("Engine Name: %s", app_info->pEngineName);
-    LOG_INFO("Engine Version: %u.%u.%u",
+    LOG_INFO(
+        "Engine Version: %u.%u.%u",
         VK_VERSION_MAJOR(app_info->engineVersion),
         VK_VERSION_MINOR(app_info->engineVersion),
         VK_VERSION_PATCH(app_info->engineVersion)
@@ -122,13 +127,15 @@ void vk_log_app_info(VkApplicationInfo* app_info) {
     );
 }
 
-VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info, const char* const* layers, uint32_t layer_count) {
+VkInstanceCreateInfo vk_create_instance_info(
+    VkApplicationInfo* app_info, const char* const* layers, uint32_t layer_count
+) {
     VkInstanceCreateInfo instance_info = {0};
 
     // Create instance info: No extensions, unless required, for now
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
-    
+
     if (!vk_validation_layer_support(layers, layer_count)) {
         return instance_info;
     }
@@ -138,7 +145,9 @@ VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info, const 
     return instance_info;
 }
 
-VkInstance vk_create_instance(const VkAllocationCallbacks* allocator, const char* const* layers, uint32_t layer_count) {
+VkInstance vk_create_instance(
+    const char* const* layers, uint32_t layer_count, const VkAllocationCallbacks* allocator
+) {
     uint32_t api_version = vk_api_version();
     VkApplicationInfo app_info = vk_create_app_info("instance-app", "No Engine", api_version);
     VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info, layers, layer_count);
@@ -158,7 +167,7 @@ VkInstance vk_create_instance(const VkAllocationCallbacks* allocator, const char
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-    VkInstance instance = vk_create_instance(NULL, validation_layers, VALIDATION_LAYER_COUNT);
+    VkInstance instance = vk_create_instance(validation_layers, VALIDATION_LAYER_COUNT, NULL);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         return EXIT_FAILURE;
