@@ -41,8 +41,9 @@ target_include_directories(vk-minimal PUBLIC include dsa/include)
 target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan dsa)
 
 enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(dsa)
 add_subdirectory(examples)
+# add_subdirectory(tests)
 
 # Custom doc target for generating docs
 add_custom_target(doc
@@ -52,7 +53,7 @@ add_custom_target(doc
 )
 
 # Custom clean target for removing generated files
-add_custom_target(clean_all
-    COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_BINARY_DIR}/bin ${CMAKE_BINARY_DIR}/lib
-    COMMENT "Cleaning all generated files"
-)
+# add_custom_target(clean_all
+#     COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_BINARY_DIR}/bin ${CMAKE_BINARY_DIR}/lib
+#     COMMENT "Cleaning all generated files"
+# )
