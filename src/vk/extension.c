@@ -127,9 +127,9 @@ bool vkc_extension_match_request(VkcExtension* ext) {
         VkExtensionProperties prop = {0};
         if (vkc_extension_match_name(ext, ext->request->names[i], &prop)) {
             LOG_DEBUG(
-                "[VkExtensionProperties] Supported: %s - %s",
+                "[VkExtensionProperties] Supported: %s (specVersion=%u)",
                 prop.extensionName,
-                prop.specVersion ? "vX" : ""
+                prop.specVersion
             );
             return true;
         }
