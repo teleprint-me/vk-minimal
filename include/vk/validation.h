@@ -1,11 +1,13 @@
 /**
  * @file include/vk/validation.h
+ * @note Validation and Extensions are similar in shape and form.
+ * The interfaces are duplicated for clarity and simplicity.
  */
 
 #ifndef VKC_VALIDATION_LAYER_H
 #define VKC_VALIDATION_LAYER_H
 
-#include "core/lease.h"
+#include "allocator/lease.h"
 
 #include <vulkan/vulkan.h>
 

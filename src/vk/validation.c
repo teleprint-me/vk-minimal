@@ -4,7 +4,7 @@
 
 #include "core/logger.h"
 #include "core/memory.h"
-#include "core/lease.h"
+#include "allocator/lease.h"
 
 #include "vk/validation.h"
 

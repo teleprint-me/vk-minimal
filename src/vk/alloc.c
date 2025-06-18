@@ -17,7 +17,7 @@ vk_lease_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocatio
     void* address = lease_alloc_owned_address(owner, size, alignment);
     if (!address) {
         LOG_ERROR(
-            "VK_ALLOC] Failed to alloc: "
+            "[VK_ALLOC] Failed to alloc: "
             "address=%p, size=%zu, align=%zu, scope=%d",
             owner,
             size,
@@ -44,7 +44,7 @@ void* VKAPI_CALL vk_lease_realloc(
         return NULL;
     }
 
-    if (HASH_SUCCESS != lease_realloc(owner, pOriginal, size, alignment)) {
+    if (HASH_MAP_STATE_SUCCESS != lease_realloc(owner, pOriginal, size, alignment)) {
         LOG_ERROR("VK_REALLOC] realloc failure: address=%p, size=%zu", pOriginal, size);
         return NULL;
     }
