@@ -17,7 +17,7 @@ IndentWidth: 4
 IndentCaseLabels: true
 IndentCaseBlocks: true
 AccessModifierOffset: -2
-ConstructorInitializerIndentWidth: 10
+ConstructorInitializerIndentWidth: 4
 IndentPPDirectives: BeforeHash
 PPIndentWidth: 4
 
@@ -83,6 +83,7 @@ AlwaysBreakBeforeMultilineStrings: false
 # Parameter and argument packing
 BinPackParameters: false
 BinPackArguments: false
+PackConstructorInitializers: Never
 AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 
