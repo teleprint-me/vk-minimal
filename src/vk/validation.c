@@ -12,9 +12,8 @@
  * @section Internal functions
  */
 
-static VkcValidationLayerRequest* vkc_validation_layer_request(
-    LeaseOwner* owner, const char* const* names, const uint32_t count
-) {
+static VkcValidationLayerRequest*
+vkc_validation_layer_request(LeaseOwner* owner, const char* const* names, const uint32_t count) {
     if (!owner || !names || !(*names) || 0 == count) {
         LOG_ERROR("Invalid arguments (owner=%p, layers=%p, layer_count=%u)", owner, names, count);
         return NULL;
@@ -35,7 +34,8 @@ static VkcValidationLayerRequest* vkc_validation_layer_request(
     return request;
 }
 
-static VkcValidationLayerResponse* vkc_validation_layer_response(LeaseOwner* owner, VkcValidationLayerRequest* request) {
+static VkcValidationLayerResponse*
+vkc_validation_layer_response(LeaseOwner* owner, VkcValidationLayerRequest* request) {
     if (!owner || !request || !request->names || !(*request->names) || 0 == request->count) {
         LOG_ERROR("Invalid arguments (layers=%p, layer_count=%u)", request->names, request->count);
         return NULL;
@@ -79,7 +79,8 @@ static VkcValidationLayerResponse* vkc_validation_layer_response(LeaseOwner* own
  * @section Public functions
  */
 
-VkcValidationLayer* vkc_validation_layer_create(const char* const* names, const uint32_t count, size_t capacity) {
+VkcValidationLayer*
+vkc_validation_layer_create(const char* const* names, const uint32_t count, size_t capacity) {
     if (!names || !(*names) || 0 == count || 0 == capacity) {
         LOG_ERROR("Invalid arguments (layers=%p, count=%u, capacity=%zu", names, count, capacity);
         return NULL;
@@ -102,7 +103,8 @@ VkcValidationLayer* vkc_validation_layer_create(const char* const* names, const 
         return NULL;
     }
 
-    VkcValidationLayer* layer = lease_alloc_owned_address(owner, sizeof(VkcValidationLayer), alignof(VkcValidationLayer));
+    VkcValidationLayer* layer
+        = lease_alloc_owned_address(owner, sizeof(VkcValidationLayer), alignof(VkcValidationLayer));
     if (!layer) {
         lease_free_owner(owner);
         return NULL;
@@ -124,7 +126,9 @@ void vkc_validation_layer_free(VkcValidationLayer* layer) {
     }
 }
 
-bool vkc_validation_layer_match_index(VkcValidationLayer* layer, uint32_t index, VkLayerProperties* out) {
+bool vkc_validation_layer_match_index(
+    VkcValidationLayer* layer, uint32_t index, VkLayerProperties* out
+) {
     if (!layer || !layer->response || !out) {
         return false;
     }
@@ -135,7 +139,9 @@ bool vkc_validation_layer_match_index(VkcValidationLayer* layer, uint32_t index,
     return true;
 }
 
-bool vkc_validation_layer_match_name(VkcValidationLayer* layer, const char* name, VkLayerProperties* out) {
+bool vkc_validation_layer_match_name(
+    VkcValidationLayer* layer, const char* name, VkLayerProperties* out
+) {
     if (!layer || !layer->response || !name || !out) {
         return false;
     }
@@ -152,7 +158,11 @@ bool vkc_validation_layer_match_request(VkcValidationLayer* layer) {
     for (uint32_t i = 0; i < layer->request->count; ++i) {
         VkLayerProperties props = {0};
         if (vkc_validation_layer_match_name(layer, layer->request->names[i], &props)) {
-            LOG_DEBUG("[VkLayerProperties] [Response] name=%s, desc=%s", props.layerName, props.description);
+            LOG_DEBUG(
+                "[VkLayerProperties] [Response] name=%s, desc=%s",
+                props.layerName,
+                props.description
+            );
             return true;
         }
     }
