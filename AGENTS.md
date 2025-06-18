@@ -1,65 +1,73 @@
-## `AGENTS.md`
+# `AGENTS.md`
 
-### Purpose
+## 🎯 Purpose
 
-This file provides operational guidance for agents executing inside a container. The container environment is pre-configured and **does not require network access** or dependency installation.
+This file provides operational guidance for agents executing inside a containerized environment. The container is **pre-configured**, and **network access is disabled** during execution.
 
-### ✅ Assumptions
+## ✅ Assumptions
 
-* All build-time dependencies (e.g., compilers, CMake, Vulkan SDK, GLSLang, Doxygen) are installed.
-* Git submodules (like `dsa/`) are already initialized and checked out.
-* Internet access is **not permitted** during agent execution.
+* All build-time dependencies are installed:
 
-### 🧠 Agent Expectations
+  * Compilers (`gcc`, `clang`)
+  * `cmake`
+  * Vulkan SDK
+  * GLSLang tools (`glslangValidator`)
+  * `doxygen`
+* Git submodules (like `dsa/`) are **already initialized** and do **not** require cloning.
+* Internet access is **not available** at runtime.
 
-The agent must **not attempt to:**
+## 🧠 Agent Behavior Requirements
 
-* Fetch packages from the network.
-* Re-clone or re-initialize Git submodules.
-* Modify the container environment.
-* Install software via package managers.
+The agent **must not attempt to**:
 
-### 🛠 Usage Instructions
+* Fetch packages or files from the internet.
+* Clone, update, or initialize Git submodules.
+* Modify the container environment or install additional tools.
+* Assume persistent writable storage beyond the project directory.
+
+## 🛠️ Usage Instructions
 
 The agent may safely execute the following scripts from the project root:
 
-#### Build the project
+### 🔧 Build the project
 
 ```sh
 chmod +x build.sh
 ./build.sh
 ```
 
-#### Run the Vulkan example with AddressSanitizer
+### 🧪 Run the Vulkan example (AddressSanitizer enabled)
 
 ```sh
 chmod +x vk.sh
 ./vk.sh
 ```
 
-#### Generate documentation (optional)
+### 📚 Generate documentation (optional)
 
 ```sh
 chmod +x doxy.sh
 ./doxy.sh
 ```
 
-#### Run unit tests (optional)
+### ✔️ Run unit tests (optional)
 
 ```sh
 ctest --rerun-failed --output-on-failure --test-dir build/
 ```
 
-### 🔍 Expected Structure
+## 📁 Required Directory Layout
 
-The following directories and files **must exist** before the agent begins execution:
+The following files and directories **must be present** before agent execution begins:
 
 ```
 .
-├── dsa/ # Git submodule initialized and populated
+├── dsa/              # Pre-initialized submodule or extracted archive
+├── dsa.tar.gz        # Backup archive of dsa/, for offline fallback
 ├── src/
 ├── include/
 ├── build.sh
+├── init.sh           # Unpacks dsa.tar.gz if needed
 ├── vk.sh
 ├── doxy.sh
 ├── CMakeLists.txt
@@ -67,6 +75,33 @@ The following directories and files **must exist** before the agent begins execu
 └── ...
 ```
 
-### 🧪 Optional: Runtime Checks
+## 📦 Offline Submodule Initialization
 
-Scripts such as `build.sh` may perform internal checks (e.g., verifying `dsa/CMakeLists.txt` exists) to ensure a sane build environment. These checks should not trigger network operations.
+This project uses the `dsa/` library as a Git submodule. For offline environments, a fallback archive `dsa.tar.gz` is included.
+
+### 🧰 Step 1: Extract the Submodule
+
+```sh
+chmod +x init.sh
+./init.sh
+```
+
+This script checks if `dsa/` exists and unpacks `dsa.tar.gz` if necessary.
+
+### 🧪 Step 2: Build the Project
+
+```sh
+./build.sh
+```
+
+No further setup is required after `init.sh` completes successfully.
+
+## 🔒 Security & Isolation
+
+* Do **not** run `git submodule update` — this environment is offline.
+* Do **not** delete or move `dsa.tar.gz` unless `dsa/` is fully extracted.
+* Avoid adding new runtime dependencies or reaching out to external services.
+
+## 🧠 Final Note
+
+This setup ensures agents operate deterministically, offline, and with full access to the required source tree. If `dsa/` is missing or corrupted, fallback via `init.sh` ensures resilience.
