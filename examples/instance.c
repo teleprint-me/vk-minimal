@@ -14,6 +14,16 @@
 #define VALIDATION_LAYER_COUNT 1 /// @warning Cannot be a variable
 const char* const validation_layers[VALIDATION_LAYER_COUNT] = {"VK_LAYER_KHRONOS_validation"};
 
+typedef struct InstanceValidation {
+    const uint32_t count;
+    const char** layers;
+} InstanceValidation;
+
+typedef struct InstanceValidationProperties {
+    uint32_t count;
+    VkLayerProperties* properties;
+} InstanceValidationProperties;
+
 bool vk_validation_layer_support(const char* const* layers, uint32_t layer_count) {
     if (!layers || !(*layers) || 0 == layer_count) {
         LOG_ERROR("Invalid arguments (layers=%p, layer_count=%u)", layers, layer_count);
@@ -32,7 +42,7 @@ bool vk_validation_layer_support(const char* const* layers, uint32_t layer_count
         return false;
     }
 
-    VkLayerProperties* properties = memory_aligned_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
+    VkLayerProperties* properties = memory_calloc(property_count, sizeof(VkLayerProperties), alignof(VkLayerProperties));
     if (!properties) {
         LOG_ERROR("Memory allocation failed for layer properties");
         return false;
@@ -45,11 +55,17 @@ bool vk_validation_layer_support(const char* const* layers, uint32_t layer_count
         return false;
     }
 
+    LOG_INFO("Supported Property Count: %zu", property_count);
+    for (uint32_t i = 0; i < property_count; i++) {
+        LOG_INFO("Supported Property: index=%zu, name='%s'", i, properties[i].layerName);
+    }
+
     // Check to see if the available layers match the requested layers.
     for (uint32_t i = 0; i < layer_count; ++i) {
         bool layer_found = false;
         for (uint32_t j = 0; j < property_count; ++j) {
-            if (strcmp(layers[i], properties[j].layerName) == 0) {
+            if (0 == strcmp(layers[i], properties[j].layerName)) {
+                LOG_INFO("Selected Property: index=%zu, name='%s'", i, properties[j].layerName);
                 layer_found = true;
                 break;
             }

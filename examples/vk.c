@@ -1,6 +1,7 @@
 // examples/vk.c
 #include "core/logger.h"
-#include "core/lease.h"
+#include "core/memory.h"
+#include "allocator/lease.h"
 #include "vk/alloc.h"
 
 #include <vulkan/vulkan.h>
@@ -13,6 +14,15 @@
  * Create a Vulkan Instance
  */
 
+uint32_t vk_api_version(void) {
+    uint32_t apiVersion;
+    if (vkEnumerateInstanceVersion(&apiVersion) != VK_SUCCESS) {
+        fprintf(stderr, "Failed to enumerate Vulkan instance version.\n");
+        return 0;
+    }
+    return apiVersion;
+}
+
 VkApplicationInfo vk_create_app_info(void) {
     VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -20,7 +30,7 @@ VkApplicationInfo vk_create_app_info(void) {
     app_info.applicationVersion = VK_API_VERSION_1_4;
     app_info.pEngineName = "vk-compute";
     app_info.engineVersion = VK_API_VERSION_1_4;
-    app_info.apiVersion = VK_API_VERSION_1_4;
+    app_info.apiVersion = vk_api_version();
     return app_info;
 }
 
@@ -46,6 +56,65 @@ VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
 
     LOG_INFO("Vulkan instance created successfully.");
     return instance;
+}
+
+/**
+ * Create Validation Layers
+ */
+
+// Define validation layers
+#define VALIDATION_LAYER_COUNT 1 /// @warning Cannot be a variable
+const char* const validation_layers[VALIDATION_LAYER_COUNT] = {"VK_LAYER_KHRONOS_validation"};
+
+VkResult vk_check_validation_layer_support(const char* const* layers, uint32_t layer_count) {
+    if (!layers || !(*layers) || 0 == layer_count) {
+        LOG_ERROR("%s: Invalid arguments (layers=%p, layer_count=%u)\n", __func__, layers, layer_count);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    VkResult result;
+    uint32_t property_count = 0;
+    result = vkEnumerateInstanceLayerProperties(&property_count, VK_NULL_HANDLE);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("%s: Failed to enumerate layer property count (error code: %u)\n", __func__, result);
+        return result;
+    }
+    if (0 == property_count) {
+        LOG_ERROR("%s: No validation layers available\n", __func__);
+        return VK_ERROR_LAYER_NOT_PRESENT;
+    }
+
+    VkLayerProperties* properties = memory_alloc(property_count, alignof(VkLayerProperties));
+    if (!properties) {
+        LOG_ERROR("%s: Memory allocation failed for layer properties\n", __func__);
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    result = vkEnumerateInstanceLayerProperties(&property_count, properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("%s: Failed to enumerate layer properties (error code: %u)\n", __func__, result);
+        free(properties);
+        return result;
+    }
+
+    // Check to see if the available layers match the requested layers.
+    for (uint32_t i = 0; i < layer_count; ++i) {
+        bool layer_found = false;
+        for (uint32_t j = 0; j < property_count; ++j) {
+            if (strcmp(layers[i], properties[j].layerName) == 0) {
+                layer_found = true;
+                break;
+            }
+        }
+        if (!layer_found) {
+            LOG_ERROR("%s: Validation layer not found: %s\n", __func__, layers[i]);
+            free(properties);
+            return VK_ERROR_LAYER_NOT_PRESENT;
+        }
+    }
+
+    free(properties);
+    return VK_SUCCESS;
 }
 
 int main(void) {
