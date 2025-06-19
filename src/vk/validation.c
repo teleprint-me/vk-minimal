@@ -158,7 +158,7 @@ bool vkc_validation_layer_match_request(VkcValidationLayer* layer) {
     for (uint32_t i = 0; i < layer->request->count; ++i) {
         VkLayerProperties props = {0};
         if (vkc_validation_layer_match_name(layer, layer->request->names[i], &props)) {
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
             LOG_DEBUG(
                 "[VkLayerProperties] [Response] name=%s, desc=%s",
                 props.layerName,

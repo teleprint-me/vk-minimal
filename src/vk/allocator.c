@@ -27,7 +27,7 @@ vk_lease_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocatio
         return NULL;
     }
 
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     LOG_DEBUG("[VK_ALLOC] %p (%zu bytes, %zu aligned)", address, size, alignment);
 #endif
 
@@ -51,13 +51,13 @@ void* VKAPI_CALL vk_lease_realloc(
 
     LeaseTenant* tenant = lease_get_tenant(owner, pOriginal);
     if (tenant && tenant->object && tenant->object->address) {
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
         LOG_DEBUG("[VK_REALLOC] %p → %p (%zu bytes)", pOriginal, tenant->object->address, size);
 #endif
         return tenant->object->address;
     }
 
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     LOG_DEBUG("VK_REALLOC] Failed to find tenant: address=%p, size=%zu", pOriginal, size);
 #endif
 
@@ -81,7 +81,7 @@ void VKAPI_CALL vk_lease_free(void* pUserData, void* pMemory) {
         return;
     }
 
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     LOG_DEBUG("[VK_FREE] %p", pMemory);
 #endif
 
@@ -91,13 +91,11 @@ void VKAPI_CALL vk_lease_free(void* pUserData, void* pMemory) {
 void VKAPI_CALL vk_lease_internal_alloc(
     void* pUserData, size_t size, VkInternalAllocationType type, VkSystemAllocationScope scope
 ) {
-#ifndef NDEBUG
     (void) pUserData;
     (void) size;
     (void) type;
     (void) scope;
-#endif
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     LOG_DEBUG(
         "[VK_INTERNAL_ALLOC] owner=%p, size=%zu, type=%d, scope=%d", pUserData, size, type, scope
     );
@@ -107,13 +105,11 @@ void VKAPI_CALL vk_lease_internal_alloc(
 void VKAPI_CALL vk_lease_internal_free(
     void* pUserData, size_t size, VkInternalAllocationType type, VkSystemAllocationScope scope
 ) {
-#ifndef NDEBUG
     (void) pUserData;
     (void) size;
     (void) type;
     (void) scope;
-#endif
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     LOG_DEBUG(
         "[VK_INTERNAL_FREE] owner=%p, size=%zu, type=%d, scope=%d", pUserData, size, type, scope
     );

@@ -126,7 +126,7 @@ bool vkc_extension_match_request(VkcExtension* ext) {
     for (uint32_t i = 0; i < ext->request->count; ++i) {
         VkExtensionProperties prop = {0};
         if (vkc_extension_match_name(ext, ext->request->names[i], &prop)) {
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
             LOG_DEBUG(
                 "[VkExtensionProperties] Supported: %s (specVersion=%u)",
                 prop.extensionName,
