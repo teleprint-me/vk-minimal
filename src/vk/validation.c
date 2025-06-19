@@ -158,11 +158,13 @@ bool vkc_validation_layer_match_request(VkcValidationLayer* layer) {
     for (uint32_t i = 0; i < layer->request->count; ++i) {
         VkLayerProperties props = {0};
         if (vkc_validation_layer_match_name(layer, layer->request->names[i], &props)) {
+#ifdef NDEBUG
             LOG_DEBUG(
                 "[VkLayerProperties] [Response] name=%s, desc=%s",
                 props.layerName,
                 props.description
             );
+#endif
             return true;
         }
     }
