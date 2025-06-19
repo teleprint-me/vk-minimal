@@ -10,6 +10,7 @@
 
 /**
  * @name Private Interface
+ * {@
  */
 
 /**
@@ -31,14 +32,14 @@ typedef struct VkcHashPage {
  * @brief Allocates and initializes a VkcHashPage.
  *
  * Allocates a `VkcHashPage` on the heap and fills in the provided metadata.
- * The returned pointer should be freed using `vkc_free_page()` when no longer needed.
+ * The returned pointer should be freed using `vkc_page_free()` when no longer needed.
  *
  * @param size Size of the Vulkan allocation in bytes.
  * @param alignment Alignment in bytes.
  * @param scope Vulkan memory allocation scope.
  * @return Pointer to the initialized `VkcHashPage`, or NULL on failure.
  */
-VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationScope scope) {
+VkcHashPage* vkc_page_create(size_t size, size_t alignment, VkSystemAllocationScope scope) {
     VkcHashPage* page = memory_alloc(sizeof(VkcHashPage), alignof(VkcHashPage));
     if (NULL == page) {
         return NULL;
@@ -61,7 +62,7 @@ VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationSco
  *
  * @param page Pointer to the `VkcHashPage` to free.
  */
-void vkc_free_page(VkcHashPage* page) {
+void vkc_page_free(VkcHashPage* page) {
     if (NULL == page) {
         return;
     }
@@ -99,7 +100,7 @@ void* VKAPI_CALL vkc_malloc(
         return NULL;
     }
 
-    VkcHashPage* page = vkc_alloc_page(size, alignment, scope);
+    VkcHashPage* page = vkc_page_create(size, alignment, scope);
     if (NULL == page) {
         memory_free(address);
         LOG_ERROR("[VK_ALLOC] Failed to allocate page metadata for %p", address);
@@ -109,7 +110,7 @@ void* VKAPI_CALL vkc_malloc(
     HashMapState state = hash_map_insert(map, address, page);
     if (state != HASH_MAP_STATE_SUCCESS) {
         memory_free(address);
-        vkc_free_page(page);
+        vkc_page_free(page);
         LOG_ERROR("[VK_ALLOC] Failed to insert %p into page map (state = %d)", address, state);
         return NULL;
     }
@@ -166,7 +167,7 @@ void* VKAPI_CALL vkc_realloc(
         if (HASH_MAP_STATE_SUCCESS != hash_map_delete(map, pOriginal)) {
             LOG_ERROR("[VK_REALLOC] Failed to remove page for %p", pOriginal);
         }
-        vkc_free_page(page);
+        vkc_page_free(page);
         memory_free(pOriginal);
         return NULL;
     }
@@ -234,7 +235,7 @@ void VKAPI_CALL vkc_free(void* pUserData, void* pMemory) {
     LOG_DEBUG("[VK_FREE] %p (%zu bytes, %zu aligned)", pMemory, page->size, page->alignment);
 #endif
 
-    vkc_free_page(page);
+    vkc_page_free(page);
     memory_free(pMemory);
 }
 
@@ -270,8 +271,11 @@ void VKAPI_CALL vkc_internal_free(
 #endif
 }
 
+/** @} */
+
 /**
  * @name Public Interface
+ * {@
  */
 
 VkAllocationCallbacks VKAPI_CALL vkc_hash_callbacks(HashMap* map) {
@@ -284,3 +288,5 @@ VkAllocationCallbacks VKAPI_CALL vkc_hash_callbacks(HashMap* map) {
         .pfnInternalFree = vkc_internal_free,
     };
 }
+
+/** @} */
