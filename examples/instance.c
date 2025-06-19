@@ -20,7 +20,7 @@ const char* const INSTANCE_EXTENSIONS[EXTENSION_COUNT] = {"VK_EXT_debug_utils"};
  * Create a Vulkan Instance
  */
 
-uint32_t vk_api_version(void) {
+uint32_t vkc_api_version(void) {
     uint32_t apiVersion;
     if (VK_SUCCESS != vkEnumerateInstanceVersion(&apiVersion)) {
         fprintf(stderr, "Failed to enumerate Vulkan instance version.\n");
@@ -30,7 +30,7 @@ uint32_t vk_api_version(void) {
 }
 
 VkApplicationInfo
-vk_create_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
+vkc_create_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
     VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = app_name;
@@ -64,7 +64,7 @@ void vk_log_app_info(VkApplicationInfo* app_info) {
     );
 }
 
-VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
+VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
     VkInstanceCreateInfo instance_info = {0};
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
@@ -89,10 +89,10 @@ VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
     return instance_info;
 }
 
-VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
-    uint32_t api_version = vk_api_version();
-    VkApplicationInfo app_info = vk_create_app_info("instance-app", "No Engine", api_version);
-    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
+VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
+    uint32_t api_version = vkc_api_version();
+    VkApplicationInfo app_info = vkc_create_app_info("instance-app", "No Engine", api_version);
+    VkInstanceCreateInfo instance_info = vkc_create_instance_info(&app_info);
     VkInstance instance = VK_NULL_HANDLE;
 
     VkResult result = vkCreateInstance(&instance_info, allocator, &instance);
@@ -109,7 +109,7 @@ VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-    VkInstance instance = vk_create_instance(NULL);
+    VkInstance instance = vkc_create_instance(NULL);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         return EXIT_FAILURE;
