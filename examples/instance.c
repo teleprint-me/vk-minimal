@@ -69,7 +69,7 @@ VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
 
-#ifdef NDEBUG
+#if defined(DEBUG) && (1 == DEBUG)
     VkcValidationLayer* validation
         = vkc_validation_layer_create(VALIDATION_LAYERS, VALIDATION_LAYER_COUNT, 1024);
     if (validation && vkc_validation_layer_match_request(validation)) {
@@ -112,14 +112,16 @@ VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-
-    VkInstance instance = vkc_create_instance(NULL);
+    LeaseOwner* owner = lease_create_owner(4096);
+    VkAllocationCallbacks allocator = vk_lease_callbacks(owner);
+    VkInstance instance = vkc_create_instance(&allocator);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         return EXIT_FAILURE;
     }
 
-    vkDestroyInstance(instance, NULL);
+    vkDestroyInstance(instance, &allocator);
+    lease_free_owner(owner);
     LOG_INFO("Successfully destroyed Vulkan instance!");
     return EXIT_SUCCESS;
 }
