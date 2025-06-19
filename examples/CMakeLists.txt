@@ -3,7 +3,7 @@ set(EXAMPLES
     "extend"
     "instance"
     "pt" # POSIX Threads
-    "vk" # Vulkan
+    # "vk" # Vulkan
 )
 
 set(INPUT_DIR ${PROJECT_SOURCE_DIR}/examples)

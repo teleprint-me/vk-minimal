@@ -1,6 +1,5 @@
 // examples/instance.c
 #include "core/logger.h"
-#include "core/memory.h"
 #include "vk/allocator.h"
 #include "vk/validation.h"
 #include "vk/extension.h"
@@ -112,17 +111,23 @@ VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-    LeaseOwner* owner = lease_create_owner(1024);
-    VkAllocationCallbacks allocator = vk_lease_callbacks(owner);
+    HashMap* map = hash_map_create(1024, HASH_MAP_KEY_TYPE_ADDRESS);
+    if (!map) {
+        LOG_ERROR("Failed to create HashMap.");
+        return EXIT_FAILURE;
+    }
+
+    VkAllocationCallbacks allocator = vkc_hash_callbacks(map);
     VkInstance instance = vkc_create_instance(&allocator);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
-        lease_free_owner(owner);
+        hash_map_free(map);
         return EXIT_FAILURE;
     }
 
     vkDestroyInstance(instance, &allocator);
-    lease_free_owner(owner);
+    hash_map_free(map);
     LOG_INFO("Successfully destroyed Vulkan instance!");
+
     return EXIT_SUCCESS;
 }
