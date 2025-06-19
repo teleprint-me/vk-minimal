@@ -2,7 +2,7 @@
 #include "core/logger.h"
 #include "core/memory.h"
 #include "allocator/lease.h"
-#include "vk/alloc.h"
+#include "vk/allocator.h"
 
 #include <vulkan/vulkan.h>
 

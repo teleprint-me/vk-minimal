@@ -35,7 +35,7 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 add_library(vk-minimal SHARED
     "src/vk/validation.c"
     "src/vk/extension.c"
-    "src/vk/alloc.c"
+    "src/vk/allocator.c"
     "src/vk/shader.c"
 )
 target_include_directories(vk-minimal PUBLIC include dsa/include)

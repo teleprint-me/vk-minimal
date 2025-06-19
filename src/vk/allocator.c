@@ -4,7 +4,7 @@
  */
 
 #include "core/logger.h"
-#include "vk/alloc.h"
+#include "vk/allocator.h"
 
 void* VKAPI_CALL
 vk_lease_alloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope scope) {

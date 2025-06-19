@@ -1,7 +1,7 @@
 // examples/instance.c
 #include "core/logger.h"
 #include "core/memory.h"
-#include "allocator/freelist.h"
+#include "vk/allocator.h"
 #include "vk/validation.h"
 #include "vk/extension.h"
 
@@ -112,6 +112,7 @@ VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
+
     VkInstance instance = vkc_create_instance(NULL);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
