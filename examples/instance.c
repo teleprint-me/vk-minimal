@@ -19,7 +19,7 @@ const char* const INSTANCE_EXTENSIONS[EXTENSION_COUNT] = {"VK_EXT_debug_utils"};
  * Create a Vulkan Instance
  */
 
-uint32_t vkc_api_version(void) {
+uint32_t vkc_instance_version(void) {
     uint32_t apiVersion;
     if (VK_SUCCESS != vkEnumerateInstanceVersion(&apiVersion)) {
         LOG_ERROR("Failed to enumerate Vulkan instance version.");
@@ -29,7 +29,7 @@ uint32_t vkc_api_version(void) {
 }
 
 VkApplicationInfo
-vkc_create_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
+vkc_instance_app_info(const char* app_name, const char* app_engine, uint32_t api_version) {
     VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = app_name;
@@ -40,22 +40,22 @@ vkc_create_app_info(const char* app_name, const char* app_engine, uint32_t api_v
     return app_info;
 }
 
-void vk_log_app_info(VkApplicationInfo* app_info) {
-    LOG_INFO("Application Name: %s", app_info->pApplicationName);
-    LOG_INFO(
+void vkc_instance_app_info_log(VkApplicationInfo* app_info) {
+    LOG_DEBUG("Application Name: %s", app_info->pApplicationName);
+    LOG_DEBUG(
         "Application Version: %u.%u.%u",
         VK_VERSION_MAJOR(app_info->applicationVersion),
         VK_VERSION_MINOR(app_info->applicationVersion),
         VK_VERSION_PATCH(app_info->applicationVersion)
     );
-    LOG_INFO("Engine Name: %s", app_info->pEngineName);
-    LOG_INFO(
+    LOG_DEBUG("Engine Name: %s", app_info->pEngineName);
+    LOG_DEBUG(
         "Engine Version: %u.%u.%u",
         VK_VERSION_MAJOR(app_info->engineVersion),
         VK_VERSION_MINOR(app_info->engineVersion),
         VK_VERSION_PATCH(app_info->engineVersion)
     );
-    LOG_INFO(
+    LOG_DEBUG(
         "API Version: %u.%u.%u",
         VK_API_VERSION_MAJOR(app_info->apiVersion),
         VK_API_VERSION_MINOR(app_info->apiVersion),
@@ -63,7 +63,7 @@ void vk_log_app_info(VkApplicationInfo* app_info) {
     );
 }
 
-VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
+VkInstanceCreateInfo vkc_instance_info(VkApplicationInfo* app_info) {
     VkInstanceCreateInfo instance_info = {0};
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
@@ -91,15 +91,15 @@ VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
     return instance_info;
 }
 
-VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
-    uint32_t api_version = vkc_api_version();
-    VkApplicationInfo app_info = vkc_create_app_info("instance-app", "No Engine", api_version);
+VkInstance vkc_instance_create(const VkAllocationCallbacks* allocator) {
+    uint32_t api_version = vkc_instance_version();
+    VkApplicationInfo app_info = vkc_instance_app_info("instance-app", "No Engine", api_version);
 
 #if defined(DEBUG) && (1 == DEBUG)
-    vk_log_app_info(&app_info);
+    vkc_instance_app_info_log(&app_info);
 #endif
 
-    VkInstanceCreateInfo instance_info = vkc_create_instance_info(&app_info);
+    VkInstanceCreateInfo instance_info = vkc_instance_info(&app_info);
     VkInstance instance = VK_NULL_HANDLE;
 
     VkResult result = vkCreateInstance(&instance_info, allocator, &instance);
@@ -126,7 +126,7 @@ int main(void) {
     }
 
     VkAllocationCallbacks allocator = vkc_hash_callbacks(map);
-    VkInstance instance = vkc_create_instance(&allocator);
+    VkInstance instance = vkc_instance_create(&allocator);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         hash_map_free(map);
