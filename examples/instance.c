@@ -22,7 +22,7 @@ const char* const INSTANCE_EXTENSIONS[EXTENSION_COUNT] = {"VK_EXT_debug_utils"};
 uint32_t vkc_api_version(void) {
     uint32_t apiVersion;
     if (VK_SUCCESS != vkEnumerateInstanceVersion(&apiVersion)) {
-        fprintf(stderr, "Failed to enumerate Vulkan instance version.\n");
+        LOG_ERROR("Failed to enumerate Vulkan instance version.");
         return 0;
     }
     return apiVersion;
@@ -94,6 +94,11 @@ VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
 VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
     uint32_t api_version = vkc_api_version();
     VkApplicationInfo app_info = vkc_create_app_info("instance-app", "No Engine", api_version);
+
+#if defined(DEBUG) && (1 == DEBUG)
+    vk_log_app_info(&app_info);
+#endif
+
     VkInstanceCreateInfo instance_info = vkc_create_instance_info(&app_info);
     VkInstance instance = VK_NULL_HANDLE;
 
@@ -103,7 +108,10 @@ VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
         return VK_NULL_HANDLE;
     }
 
-    LOG_INFO("Vulkan instance created successfully.");
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[VkInstance] Vulkan instance created successfully.");
+#endif
+
     return instance;
 }
 
