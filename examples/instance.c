@@ -112,11 +112,12 @@ VkInstance vkc_create_instance(const VkAllocationCallbacks* allocator) {
  * @brief Simple example showcasing how to create and destroy a custom VulkanInstance object.
  */
 int main(void) {
-    LeaseOwner* owner = lease_create_owner(4096);
+    LeaseOwner* owner = lease_create_owner(1024);
     VkAllocationCallbacks allocator = vk_lease_callbacks(owner);
     VkInstance instance = vkc_create_instance(&allocator);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
+        lease_free_owner(owner);
         return EXIT_FAILURE;
     }
 
