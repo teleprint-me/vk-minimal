@@ -13,15 +13,31 @@
  */
 
 /**
- * @name VkcHashPage
+ * @brief Internal page metadata for Vulkan host allocations.
+ *
+ * `VkcHashPage` stores metadata associated with a Vulkan allocation
+ * managed by the custom allocator. It is used to track memory size,
+ * alignment, and allocation scope for each allocation.
+ *
+ * This struct is stored in a hash map keyed by allocation address.
  */
-
 typedef struct VkcHashPage {
-    size_t size;
-    size_t alignment;
-    VkSystemAllocationScope scope;
+    size_t size; /**< Size of the allocated memory block in bytes. */
+    size_t alignment; /**< Alignment of the allocated memory block in bytes. */
+    VkSystemAllocationScope scope; /**< Vulkan-defined allocation scope. */
 } VkcHashPage;
 
+/**
+ * @brief Allocates and initializes a VkcHashPage.
+ *
+ * Allocates a `VkcHashPage` on the heap and fills in the provided metadata.
+ * The returned pointer should be freed using `vkc_free_page()` when no longer needed.
+ *
+ * @param size Size of the Vulkan allocation in bytes.
+ * @param alignment Alignment in bytes.
+ * @param scope Vulkan memory allocation scope.
+ * @return Pointer to the initialized `VkcHashPage`, or NULL on failure.
+ */
 VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationScope scope) {
     VkcHashPage* page = memory_alloc(sizeof(VkcHashPage), alignof(VkcHashPage));
     if (NULL == page) {
@@ -37,6 +53,14 @@ VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationSco
     return page;
 }
 
+/**
+ * @brief Frees a previously allocated VkcHashPage.
+ *
+ * This function safely frees the metadata associated with a Vulkan allocation.
+ * Passing NULL is safe and has no effect.
+ *
+ * @param page Pointer to the `VkcHashPage` to free.
+ */
 void vkc_free_page(VkcHashPage* page) {
     if (NULL == page) {
         return;
