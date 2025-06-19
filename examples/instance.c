@@ -69,6 +69,7 @@ VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = app_info;
 
+#ifdef NDEBUG
     VkcValidationLayer* validation
         = vkc_validation_layer_create(VALIDATION_LAYERS, VALIDATION_LAYER_COUNT, 1024);
     if (validation && vkc_validation_layer_match_request(validation)) {
@@ -86,6 +87,8 @@ VkInstanceCreateInfo vkc_create_instance_info(VkApplicationInfo* app_info) {
 
     vkc_extension_free(extension);
     vkc_validation_layer_free(validation);
+#endif
+
     return instance_info;
 }
 
