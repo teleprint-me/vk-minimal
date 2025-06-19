@@ -28,7 +28,7 @@ VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationSco
         return NULL;
     }
 
-    *page = (VkcHashPage){
+    *page = (VkcHashPage) {
         .size = size,
         .alignment = alignment,
         .scope = scope,
@@ -38,7 +38,9 @@ VkcHashPage* vkc_alloc_page(size_t size, size_t alignment, VkSystemAllocationSco
 }
 
 void vkc_free_page(VkcHashPage* page) {
-    if (NULL == page) return;
+    if (NULL == page) {
+        return;
+    }
     memory_free(page);
 }
 
@@ -147,12 +149,14 @@ void* VKAPI_CALL vkc_realloc(
 
     void* address = memory_realloc(pOriginal, page->size, size, alignment);
     if (NULL == address) {
-        LOG_ERROR("[VK_REALLOC] Failed to realloc %p (%zu → %zu bytes)", pOriginal, page->size, size);
+        LOG_ERROR(
+            "[VK_REALLOC] Failed to realloc %p (%zu → %zu bytes)", pOriginal, page->size, size
+        );
         return NULL;
     }
 
     // Update page metadata in-place
-    *page = (VkcHashPage){
+    *page = (VkcHashPage) {
         .size = size,
         .alignment = alignment,
         .scope = scope,
@@ -209,7 +213,6 @@ void VKAPI_CALL vkc_free(void* pUserData, void* pMemory) {
     vkc_free_page(page);
     memory_free(pMemory);
 }
-
 
 /**
  * @name VkcInternal
