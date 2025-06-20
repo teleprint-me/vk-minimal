@@ -53,6 +53,7 @@
     "random": "c",
     "exception": "c",
     "chrono": "c",
-    "functional": "c"
+    "functional": "c",
+    "cstdlib": "c"
   }
 }
