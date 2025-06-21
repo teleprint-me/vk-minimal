@@ -11,14 +11,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-typedef struct VkcPhysicalDevice {
+typedef struct VkcDevice {
     HashMap* ctx;
     VkPhysicalDevice* list;
-    VkPhysicalDevice selected;
+    VkPhysicalDevice physical;
     VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceFeatures features;
+    VkDeviceQueueCreateInfo queue_info;
+    VkDeviceCreateInfo info;
+    VkQueue queue;
+    VkDevice logical;
     uint32_t count;
     uint32_t queue_family_index;
-} VkcPhysicalDevice;
+} VkcDevice;
 
 int main(void) {
     VkcInstance* instance = vkc_instance_create(1024);
@@ -27,10 +32,11 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    VkcPhysicalDevice device = {0};
+    VkcDevice device = {0};
     device.queue_family_index = UINT32_MAX;
     device.list = NULL;
-    device.selected = VK_NULL_HANDLE;
+    device.physical = VK_NULL_HANDLE;
+    device.logical = VK_NULL_HANDLE;
     device.ctx = hash_map_create(1024, HASH_MAP_KEY_TYPE_ADDRESS);
     if (!device.ctx) {
         LOG_ERROR("Failed to create device context.");
@@ -63,7 +69,7 @@ int main(void) {
         VkPhysicalDevice tmp = device.list[i];
         VkPhysicalDeviceProperties props = {0};
         vkGetPhysicalDeviceProperties(tmp, &props);
-        LOG_INFO("Device %u: %s", i, props.deviceName);
+        LOG_DEBUG("Device %u: %s", i, props.deviceName);
     }
 
     // Try to find the first discrete GPU with compute support
@@ -82,23 +88,31 @@ int main(void) {
         );
         vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, queue_families);
 
-        LOG_INFO("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
+        LOG_DEBUG("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
 
         for (uint32_t j = 0; j < queue_family_count; ++j) {
             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
                 if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-                    && device.selected == VK_NULL_HANDLE) {
-                    device.selected = tmp;
+                    && device.physical == VK_NULL_HANDLE) {
+                    device.physical = tmp;
                     device.properties = props;
                     device.queue_family_index = j;
                     break;
                 }
             }
         }
-        if (device.selected != VK_NULL_HANDLE) {
+        if (device.physical != VK_NULL_HANDLE) {
             break;
         }
     }
+
+    if (device.physical == VK_NULL_HANDLE) {
+        LOG_ERROR("No suitable device with compute queue found.");
+        goto cleanup_instance;
+    }
+    LOG_DEBUG(
+        "Selected: %s (family index = %u)", device.properties.deviceName, device.queue_family_index
+    );
 
 cleanup_context:
     hash_page_free_all(device.ctx);
