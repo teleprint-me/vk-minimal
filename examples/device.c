@@ -32,6 +32,14 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    /**
+     * Create a Vulkan Physical Device
+     *
+     * @note
+     * We can not allocate array memory to the stack because
+     * goto disrupts the control flow.
+     */
+
     VkcDevice device = {0};
     device.queue_family_index = UINT32_MAX;
     device.list = NULL;
@@ -108,11 +116,44 @@ int main(void) {
 
     if (device.physical == VK_NULL_HANDLE) {
         LOG_ERROR("No suitable device with compute queue found.");
-        goto cleanup_instance;
+        goto cleanup_context;
     }
     LOG_DEBUG(
         "Selected: %s (family index = %u)", device.properties.deviceName, device.queue_family_index
     );
+
+    /**
+     * Create a Vulkan Logical Device
+     */
+
+    static const float queue_priorities[1] = {1.0f};
+    device.info = (VkDeviceCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = NULL,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &device.queue_info,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = NULL,
+        .pEnabledFeatures = &device.features, // or see note below
+    };
+
+    // The compute queue family we want access to.
+    device.queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    device.queue_info.queueFamilyIndex = device.queue_family_index;
+    device.queue_info.queueCount = 1;
+    device.queue_info.pQueuePriorities = queue_priorities;
+
+    result = vkCreateDevice(device.physical, &device.info, NULL, &device);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to create logical device: %d", result);
+        goto cleanup_context;
+    }
+    LOG_INFO("Logical device created.");
+
+    vkGetDeviceQueue(device.logical, device.queue_family_index, 0, &device.queue);
+    LOG_INFO("Retrieved compute queue.");
 
 cleanup_context:
     hash_page_free_all(device.ctx);
