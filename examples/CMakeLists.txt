@@ -2,6 +2,7 @@ set(EXAMPLES
     "validate"
     "extend"
     "instance"
+    "device"
     "pt" # POSIX Threads
     # "vk" # Vulkan
 )
