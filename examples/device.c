@@ -40,16 +40,14 @@ int main(void) {
     VkResult result = vkEnumeratePhysicalDevices(instance->object, &device.count, NULL);
     if (result != VK_SUCCESS || device.count == 0) {
         LOG_ERROR(
-            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
-            result,
-            device.count
+            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device.count
         );
         goto cleanup_context;
     }
     LOG_DEBUG("Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device.count);
 
     device.list = hash_page_malloc(
-        device.ctx, sizeof(VkPhysicalDevice) * device.count, alignof(VkPhysicalDevice)\
+        device.ctx, sizeof(VkPhysicalDevice) * device.count, alignof(VkPhysicalDevice)
     );
     if (!device.list) {
         LOG_ERROR("Failed to allocate physical device list.");
