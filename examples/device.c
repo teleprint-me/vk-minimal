@@ -68,6 +68,40 @@ int main(void) {
         LOG_INFO("Device %u: %s", i, props.deviceName);
     }
 
+    // Try to find the first discrete GPU with compute support
+    for (uint32_t i = 0; i < device.count; ++i) {
+        VkPhysicalDevice tmp = device.list[i];
+        VkPhysicalDeviceProperties props = {0};
+        vkGetPhysicalDeviceProperties(tmp, &props);
+
+        uint32_t queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, NULL);
+
+        VkQueueFamilyProperties* queue_families = hash_page_malloc(
+            device.ctx,
+            sizeof(VkQueueFamilyProperties) * queue_family_count,
+            alignof(VkQueueFamilyProperties)
+        );
+        vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, queue_families);
+
+        LOG_INFO("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
+
+        for (uint32_t j = 0; j < queue_family_count; ++j) {
+            if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+                    && device.selected == VK_NULL_HANDLE) {
+                    device.selected = tmp;
+                    device.properties = props;
+                    device.queue_family_index = j;
+                    break;
+                }
+            }
+        }
+        if (device.selected != VK_NULL_HANDLE) {
+            break;
+        }
+    }
+
 cleanup_context:
     hash_page_free_all(device.ctx);
     hash_map_free(device.ctx);
