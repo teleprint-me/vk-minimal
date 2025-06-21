@@ -127,6 +127,12 @@ int main(void) {
      */
 
     static const float queue_priorities[1] = {1.0f};
+    // The compute queue family we want access to.
+    device.queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    device.queue_info.queueFamilyIndex = device.queue_family_index;
+    device.queue_info.queueCount = 1;
+    device.queue_info.pQueuePriorities = queue_priorities;
+
     device.info = (VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = NULL,
@@ -139,13 +145,7 @@ int main(void) {
         .pEnabledFeatures = &device.features, // or see note below
     };
 
-    // The compute queue family we want access to.
-    device.queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    device.queue_info.queueFamilyIndex = device.queue_family_index;
-    device.queue_info.queueCount = 1;
-    device.queue_info.pQueuePriorities = queue_priorities;
-
-    result = vkCreateDevice(device.physical, &device.info, NULL, &device);
+    result = vkCreateDevice(device.physical, &device.info, NULL, &device.logical);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         goto cleanup_context;
