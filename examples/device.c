@@ -6,6 +6,7 @@
 #include "core/memory.h"
 #include "core/logger.h"
 #include "allocator/page.h"
+#include "vk/allocator.h"
 #include "vk/instance.h"
 
 #include <stdlib.h>
@@ -14,11 +15,13 @@
 typedef struct VkcDevice {
     HashMap* ctx;
     VkPhysicalDevice* list;
+    VkQueueFamilyProperties* queue_families;
     VkPhysicalDevice physical;
     VkPhysicalDeviceProperties properties;
     VkPhysicalDeviceFeatures features;
     VkDeviceQueueCreateInfo queue_info;
     VkDeviceCreateInfo info;
+    VkAllocationCallbacks allocator;
     VkQueue queue;
     VkDevice logical;
     uint32_t count;
@@ -105,12 +108,16 @@ int main(void) {
                     device.physical = tmp;
                     device.properties = props;
                     device.queue_family_index = j;
+                    device.queue_families = queue_families;
                     break;
                 }
             }
         }
         if (device.physical != VK_NULL_HANDLE) {
             break;
+        }
+        if (device.physical == VK_NULL_HANDLE) {
+            hash_page_free(device.ctx, queue_families);
         }
     }
 
@@ -121,17 +128,20 @@ int main(void) {
     LOG_DEBUG(
         "Selected: %s (family index = %u)", device.properties.deviceName, device.queue_family_index
     );
+    VkQueueFamilyProperties props = device.queue_families[device.queue_family_index];
+    LOG_DEBUG("Selected queue flags: 0x%x", props.queueFlags);
 
     /**
      * Create a Vulkan Logical Device
      */
 
     static const float queue_priorities[1] = {1.0f};
-    // The compute queue family we want access to.
-    device.queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    device.queue_info.queueFamilyIndex = device.queue_family_index;
-    device.queue_info.queueCount = 1;
-    device.queue_info.pQueuePriorities = queue_priorities;
+    device.queue_info = (VkDeviceQueueCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = device.queue_family_index,
+        .queueCount = 1,
+        .pQueuePriorities = queue_priorities,
+    };
 
     device.info = (VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -142,19 +152,20 @@ int main(void) {
         .ppEnabledExtensionNames = NULL,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .pEnabledFeatures = &device.features, // or see note below
+        .pEnabledFeatures = &device.features,
     };
 
-    result = vkCreateDevice(device.physical, &device.info, NULL, &device.logical);
+    device.allocator = vkc_hash_callbacks(device.ctx);
+    result = vkCreateDevice(device.physical, &device.info, &device.allocator, &device.logical);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         goto cleanup_context;
     }
-    LOG_INFO("Logical device created.");
+    LOG_DEBUG("Logical device created.");
 
     vkGetDeviceQueue(device.logical, device.queue_family_index, 0, &device.queue);
-    LOG_INFO("Retrieved compute queue.");
 
+    vkDestroyDevice(device.logical, &device.allocator);
 cleanup_context:
     hash_page_free_all(device.ctx);
     hash_map_free(device.ctx);
