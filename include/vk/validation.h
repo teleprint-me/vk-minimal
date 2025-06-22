@@ -4,17 +4,13 @@
  * The interfaces are duplicated for clarity and simplicity.
  */
 
-#ifndef VKC_VALIDATION_LAYER_H
-#define VKC_VALIDATION_LAYER_H
+#ifndef VKC_VALIDATION_H
+#define VKC_VALIDATION_H
 
-#include "allocator/lease.h"
-
+#include "allocator/page.h"
 #include <vulkan/vulkan.h>
-
 #include <stdbool.h>
 #include <stdint.h>
-
-#define VKC_VALIDATION_LAYER_COUNT 1 /// @warning Cannot be a variable
 
 typedef struct VkcValidationLayerRequest {
     uint32_t count;
@@ -27,7 +23,7 @@ typedef struct VkcValidationLayerResponse {
 } VkcValidationLayerResponse;
 
 typedef struct VkcValidationLayer {
-    LeaseOwner* owner;
+    PageAllocator* allocator;
     VkcValidationLayerRequest* request;
     VkcValidationLayerResponse* response;
 } VkcValidationLayer;
@@ -41,4 +37,4 @@ bool vkc_validation_layer_match_request(VkcValidationLayer* layer);
 
 void vkc_validation_layer_log_info(VkcValidationLayer* layer);
 
-#endif // VKC_VALIDATION_LAYER_H
+#endif // VKC_VALIDATION_H

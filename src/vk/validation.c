@@ -2,25 +2,27 @@
  * @file src/vk/validation.c
  */
 
-#include "core/logger.h"
 #include "core/memory.h"
-#include "allocator/lease.h"
-
+#include "core/logger.h"
+#include "utf8/raw.h"
 #include "vk/validation.h"
 
 /**
  * @section Internal functions
  */
 
-static VkcValidationLayerRequest*
-vkc_validation_layer_request(LeaseOwner* owner, const char* const* names, const uint32_t count) {
-    if (!owner || !names || !(*names) || 0 == count) {
-        LOG_ERROR("Invalid arguments (owner=%p, layers=%p, layer_count=%u)", owner, names, count);
+static VkcValidationLayerRequest* vkc_validation_layer_request(
+    PageAllocator* allocator, const char* const* names, const uint32_t count
+) {
+    if (!allocator || !names || !(*names) || 0 == count) {
+        LOG_ERROR(
+            "Invalid arguments (allocator=%p, layers=%p, layer_count=%u)", allocator, names, count
+        );
         return NULL;
     }
 
-    VkcValidationLayerRequest* request = lease_alloc_owned_address(
-        owner, sizeof(VkcValidationLayerRequest), alignof(VkcValidationLayerRequest)
+    VkcValidationLayerRequest* request = page_malloc(
+        allocator, sizeof(VkcValidationLayerRequest), alignof(VkcValidationLayerRequest)
     );
     if (!request) {
         return NULL;
@@ -35,14 +37,14 @@ vkc_validation_layer_request(LeaseOwner* owner, const char* const* names, const 
 }
 
 static VkcValidationLayerResponse*
-vkc_validation_layer_response(LeaseOwner* owner, VkcValidationLayerRequest* request) {
-    if (!owner || !request || !request->names || !(*request->names) || 0 == request->count) {
+vkc_validation_layer_response(PageAllocator* allocator, VkcValidationLayerRequest* request) {
+    if (!allocator || !request || !request->names || !(*request->names) || 0 == request->count) {
         LOG_ERROR("Invalid arguments (layers=%p, layer_count=%u)", request->names, request->count);
         return NULL;
     }
 
-    VkcValidationLayerResponse* response = lease_alloc_owned_address(
-        owner, sizeof(VkcValidationLayerResponse), alignof(VkcValidationLayerResponse)
+    VkcValidationLayerResponse* response = page_malloc(
+        allocator, sizeof(VkcValidationLayerResponse), alignof(VkcValidationLayerResponse)
     );
     if (!response) {
         return NULL;
@@ -60,7 +62,7 @@ vkc_validation_layer_response(LeaseOwner* owner, VkcValidationLayerRequest* requ
     }
 
     size_t size = response->count * sizeof(VkLayerProperties);
-    response->properties = lease_alloc_owned_address(owner, size, alignof(VkLayerProperties));
+    response->properties = page_malloc(allocator, size, alignof(VkLayerProperties));
     if (!response->properties || !memset(response->properties, 0, size)) {
         LOG_ERROR("Memory allocation failed for layer properties");
         return NULL;
@@ -86,43 +88,46 @@ vkc_validation_layer_create(const char* const* names, const uint32_t count, size
         return NULL;
     }
 
-    LeaseOwner* owner = lease_create_owner(capacity);
-    if (!owner) {
+    PageAllocator* allocator = page_allocator_create(capacity);
+    if (!allocator) {
         return NULL;
     }
 
-    VkcValidationLayerRequest* request = vkc_validation_layer_request(owner, names, count);
-    if (!request) {
-        lease_free_owner(owner);
+    VkcValidationLayerRequest* req = vkc_validation_layer_request(allocator, names, count);
+    if (!req) {
+        page_allocator_free(allocator);
         return NULL;
     }
 
-    VkcValidationLayerResponse* response = vkc_validation_layer_response(owner, request);
-    if (!response) {
-        lease_free_owner(owner);
+    VkcValidationLayerResponse* res = vkc_validation_layer_response(allocator, req);
+    if (!res) {
+        page_allocator_free(allocator);
         return NULL;
     }
 
     VkcValidationLayer* layer
-        = lease_alloc_owned_address(owner, sizeof(VkcValidationLayer), alignof(VkcValidationLayer));
+        = page_malloc(allocator, sizeof(VkcValidationLayer), alignof(VkcValidationLayer));
     if (!layer) {
-        lease_free_owner(owner);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     *layer = (VkcValidationLayer) {
-        .owner = owner,
-        .request = request,
-        .response = response,
+        .allocator = allocator,
+        .request = req,
+        .response = res,
     };
+
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[VL_CREATE] %u requested extensions, %u found", count, res->count);
+#endif
 
     return layer;
 }
 
 void vkc_validation_layer_free(VkcValidationLayer* layer) {
-    if (layer && layer->owner) {
-        LeaseOwner* owner = layer->owner;
-        lease_free_owner(owner); // free everything
+    if (layer && layer->allocator) {
+        page_allocator_free(layer->allocator); // free everything
     }
 }
 
@@ -146,7 +151,7 @@ bool vkc_validation_layer_match_name(
         return false;
     }
     for (uint32_t i = 0; i < layer->response->count; ++i) {
-        if (0 == strcmp(name, layer->response->properties[i].layerName)) {
+        if (0 == utf8_raw_compare(name, layer->response->properties[i].layerName)) {
             *out = layer->response->properties[i];
             return true;
         }
