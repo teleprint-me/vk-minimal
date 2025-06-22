@@ -19,6 +19,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Represents a user-specified list of requested Vulkan validation layers.
  */
@@ -95,5 +99,9 @@ bool vkc_validation_layer_match_request(VkcValidationLayer* layer);
  * @param layer Pointer to the VkcValidationLayer object.
  */
 void vkc_validation_layer_log_info(VkcValidationLayer* layer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // VKC_VALIDATION_H

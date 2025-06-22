@@ -20,6 +20,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Holds the list of requested Vulkan extension names.
  */
@@ -96,5 +100,9 @@ bool vkc_extension_match_request(VkcExtension* extension);
  * @param extension Pointer to a valid VkcExtension object.
  */
 void vkc_extension_log_info(VkcExtension* extension);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // VKC_EXTENSION_H
