@@ -1,6 +1,6 @@
 set(EXAMPLES
     "validate"
-    "extend"
+    "extension"
     "instance"
     "device"
     "pt" # POSIX Threads
