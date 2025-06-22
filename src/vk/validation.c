@@ -119,7 +119,7 @@ vkc_validation_layer_create(const char* const* names, const uint32_t count, size
     };
 
 #if defined(DEBUG) && (1 == DEBUG)
-    LOG_DEBUG("[VL_CREATE] %u requested extensions, %u found", count, res->count);
+    LOG_DEBUG("[VL_CREATE] %u requested validation layers, %u found", count, res->count);
 #endif
 
     return layer;
