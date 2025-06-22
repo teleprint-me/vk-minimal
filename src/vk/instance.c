@@ -11,6 +11,10 @@
 #include "vk/allocator.h"
 #include "vk/instance.h"
 
+/**
+ * @section Private Methods
+ * {@
+ */
 static uint32_t vkc_instance_init_version(void) {
     uint32_t apiVersion;
     if (VK_SUCCESS != vkEnumerateInstanceVersion(&apiVersion)) {
@@ -61,20 +65,6 @@ vkc_instance_init_app_info(VkcInstance* instance, const char* name, const char* 
 }
 
 /**
- * @brief Initializes the Vulkan allocator and internal page map.
- */
-static bool vkc_instance_init_allocator(VkcInstance* instance, size_t map_size) {
-    instance->map = hash_map_create(map_size, HASH_MAP_KEY_TYPE_ADDRESS);
-    if (!instance->map) {
-        LOG_ERROR("Failed to create allocator hash map.");
-        return false;
-    }
-
-    instance->allocator = vkc_hash_callbacks(instance->map);
-    return true;
-}
-
-/**
  * @brief Initializes the VkInstanceCreateInfo structure.
  */
 static void vkc_instance_init_info(VkcInstance* instance) {
@@ -106,33 +96,43 @@ static void vkc_instance_init_info(VkcInstance* instance) {
 #endif
 }
 
+/** @} */
+
+/**
+ * @section Public Methods
+ * {@
+ */
+
 /**
  * @brief Creates a Vulkan instance with internal allocator and metadata.
  *
- * @param map_size Initial size of the allocator's hash map.
+ * @param page_size Initial size of the allocator's hash map.
  * @return Pointer to the created instance, or NULL on failure.
  */
-VkcInstance* vkc_instance_create(size_t map_size) {
-    VkcInstance* instance = memory_alloc(sizeof(VkcInstance), alignof(VkcInstance));
-    if (!instance) {
-        LOG_ERROR("Failed to allocate VkcInstance.");
+VkcInstance* vkc_instance_create(size_t page_size) {
+    PageAllocator* pager = page_allocator_create(page_size);
+    if (NULL == pager) {
+        LOG_ERROR("Failed to create PageAllocator.");
         return NULL;
     }
+
+    VkcInstance* instance = page_malloc(pager, sizeof(VkcInstance), alignof(VkcInstance));
+    if (NULL == instance) {
+        LOG_ERROR("Failed to allocate VkcInstance.");
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    instance->pager = pager;
+    instance->allocator = vkc_hash_callbacks(instance->pager);
 
     vkc_instance_init_app_info(instance, "Compute", "Compute Engine");
-
-    if (!vkc_instance_init_allocator(instance, map_size)) {
-        memory_free(instance);
-        return NULL;
-    }
-
     vkc_instance_init_info(instance);
 
     VkResult result = vkCreateInstance(&instance->info, &instance->allocator, &instance->object);
-    if (result != VK_SUCCESS) {
+    if (VK_SUCCESS != result) {
         LOG_ERROR("vkCreateInstance failed: %d", result);
-        hash_map_free(instance->map);
-        memory_free(instance);
+        page_allocator_free(pager);
         return NULL;
     }
 
@@ -144,12 +144,12 @@ VkcInstance* vkc_instance_create(size_t map_size) {
 }
 
 void vkc_instance_destroy(VkcInstance* instance) {
-    if (!instance) {
-        return;
+    if (instance && instance->pager) {
+        if (VK_NULL_HANDLE != instance->object) {
+            vkDestroyInstance(instance->object, &instance->allocator);
+        }
+        page_allocator_free(instance->pager);
     }
-    if (instance->object != VK_NULL_HANDLE) {
-        vkDestroyInstance(instance->object, &instance->allocator);
-    }
-    hash_map_free(instance->map);
-    memory_free(instance);
 }
+
+/** @} */

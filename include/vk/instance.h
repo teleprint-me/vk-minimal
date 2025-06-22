@@ -14,8 +14,12 @@
 #ifndef VKC_INSTANCE_H
 #define VKC_INSTANCE_H
 
-#include "map/linear.h"
+#include "allocator/page.h"
 #include <vulkan/vulkan.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief Opaque wrapper around a Vulkan instance and its allocator state.
@@ -30,7 +34,7 @@
  * The struct contents are exposed for introspection, but should not be modified directly.
  */
 typedef struct VkcInstance {
-    HashMap* map; /**< Internal allocation map (address → metadata). */
+    PageAllocator* pager; /**< Internal allocation map (address → metadata). */
     VkInstance object; /**< Vulkan instance handle. */
     VkAllocationCallbacks allocator; /**< Vulkan allocator callbacks for tracked memory. */
     VkApplicationInfo app_info; /**< Application-level metadata used during creation. */
@@ -47,13 +51,13 @@ typedef struct VkcInstance {
  * - Initializes application metadata and extensions
  * - Creates the Vulkan instance
  *
- * @param map_size Initial capacity of the allocation map.
+ * @param page_size Initial capacity of the allocation map.
  * @return A pointer to a fully initialized `VkcInstance`, or NULL on failure.
  *
  * @note On success, the returned instance must be destroyed via `vkc_instance_destroy()`.
  * @note The hash map is owned internally and freed automatically.
  */
-VkcInstance* vkc_instance_create(size_t map_size);
+VkcInstance* vkc_instance_create(size_t page_size);
 
 /**
  * @brief Destroys the Vulkan instance and releases all associated resources.
@@ -66,5 +70,9 @@ VkcInstance* vkc_instance_create(size_t map_size);
  * @param instance Pointer to a `VkcInstance` created with `vkc_instance_create()`.
  */
 void vkc_instance_destroy(VkcInstance* instance);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // VKC_INSTANCE_H
