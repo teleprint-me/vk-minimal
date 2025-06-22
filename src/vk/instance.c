@@ -15,6 +15,10 @@
  * @section Private Methods
  * {@
  */
+
+ /**
+  * @brief Enumerates the instance version.
+  */
 static uint32_t vkc_instance_init_version(void) {
     uint32_t apiVersion;
     if (VK_SUCCESS != vkEnumerateInstanceVersion(&apiVersion)) {
