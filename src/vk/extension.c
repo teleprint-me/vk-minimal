@@ -104,11 +104,7 @@ VkcExtension* vkc_extension_create(const char* const* names, uint32_t count, siz
 }
 
 void vkc_extension_free(VkcExtension* ext) {
-    if (!ext) {
-        return;
-    }
-
-    if (ext->allocator) {
+    if (ext && ext->allocator) {
         page_allocator_free(ext->allocator);
     }
 }
