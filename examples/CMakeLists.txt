@@ -1,5 +1,5 @@
 set(EXAMPLES
-    "validate"
+    "validation"
     "extension"
     "instance"
     "device"
