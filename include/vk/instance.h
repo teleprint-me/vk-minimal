@@ -25,7 +25,7 @@ extern "C" {
  * @brief Opaque wrapper around a Vulkan instance and its allocator state.
  *
  * This structure encapsulates:
- * - A tracked hash map of host allocations (`map`)
+ * - A tracked hash map of host allocations (`pager`)
  * - The actual Vulkan instance object (`object`)
  * - The active allocation callbacks (`allocator`)
  * - Application and instance creation metadata

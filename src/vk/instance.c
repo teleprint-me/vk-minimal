@@ -106,7 +106,7 @@ static void vkc_instance_init_info(VkcInstance* instance) {
 /**
  * @brief Creates a Vulkan instance with internal allocator and metadata.
  *
- * @param page_size Initial size of the allocator's hash map.
+ * @param page_size Initial size of the PageAllocator.
  * @return Pointer to the created instance, or NULL on failure.
  */
 VkcInstance* vkc_instance_create(size_t page_size) {
