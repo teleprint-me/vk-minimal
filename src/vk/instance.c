@@ -72,7 +72,7 @@ vkc_instance_init_app_info(VkcInstance* instance, const char* name, const char* 
  * @brief Initializes the VkInstanceCreateInfo structure.
  */
 static void vkc_instance_init_info(VkcInstance* instance) {
-    instance->info = (VkInstanceCreateInfo) {
+    instance->create_info = (VkInstanceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &instance->app_info,
     };
@@ -82,16 +82,16 @@ static void vkc_instance_init_info(VkcInstance* instance) {
         = vkc_validation_layer_create((const char*[]) {"VK_LAYER_KHRONOS_validation"}, 1, 1024);
 
     if (validation && vkc_validation_layer_match_request(validation)) {
-        instance->info.enabledLayerCount = validation->request->count;
-        instance->info.ppEnabledLayerNames = validation->request->names;
+        instance->create_info.enabledLayerCount = validation->request->count;
+        instance->create_info.ppEnabledLayerNames = validation->request->names;
         LOG_DEBUG("Validation layers enabled.");
     }
 
     VkcExtension* extension = vkc_extension_create((const char*[]) {"VK_EXT_debug_utils"}, 1, 1024);
 
     if (extension && vkc_extension_match_request(extension)) {
-        instance->info.enabledExtensionCount = extension->request->count;
-        instance->info.ppEnabledExtensionNames = extension->request->names;
+        instance->create_info.enabledExtensionCount = extension->request->count;
+        instance->create_info.ppEnabledExtensionNames = extension->request->names;
         LOG_DEBUG("Instance extensions enabled.");
     }
 
@@ -133,7 +133,7 @@ VkcInstance* vkc_instance_create(size_t page_size) {
     vkc_instance_init_app_info(instance, "Compute", "Compute Engine");
     vkc_instance_init_info(instance);
 
-    VkResult result = vkCreateInstance(&instance->info, &instance->allocator, &instance->object);
+    VkResult result = vkCreateInstance(&instance->create_info, &instance->allocator, &instance->object);
     if (VK_SUCCESS != result) {
         LOG_ERROR("vkCreateInstance failed: %d", result);
         page_allocator_free(pager);

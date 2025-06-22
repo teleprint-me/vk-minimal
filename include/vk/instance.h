@@ -38,7 +38,7 @@ typedef struct VkcInstance {
     VkInstance object; /**< Vulkan instance handle. */
     VkAllocationCallbacks allocator; /**< Vulkan allocator callbacks for tracked memory. */
     VkApplicationInfo app_info; /**< Application-level metadata used during creation. */
-    VkInstanceCreateInfo info; /**< VkInstanceCreateInfo used to initialize the instance. */
+    VkInstanceCreateInfo create_info; /**< VkInstanceCreateInfo used to initialize the instance. */
     uint32_t version; /**< Vulkan API version negotiated at runtime. */
 } VkcInstance;
 
