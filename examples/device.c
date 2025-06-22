@@ -13,7 +13,7 @@
 #include <stdio.h>
 
 typedef struct VkcDevice {
-    HashMap* ctx;
+    PageAllocator* context;
     VkPhysicalDevice* list;
     VkQueueFamilyProperties* queue_families;
     VkPhysicalDevice physical;
@@ -48,8 +48,8 @@ int main(void) {
     device.list = NULL;
     device.physical = VK_NULL_HANDLE;
     device.logical = VK_NULL_HANDLE;
-    device.ctx = hash_map_create(1024, HASH_MAP_KEY_TYPE_ADDRESS);
-    if (!device.ctx) {
+    device.context = page_allocator_create(1024);
+    if (!device.context) {
         LOG_ERROR("Failed to create device context.");
         goto cleanup_instance;
     }
@@ -63,8 +63,10 @@ int main(void) {
     }
     LOG_DEBUG("Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device.count);
 
-    device.list = hash_page_malloc(
-        device.ctx, sizeof(VkPhysicalDevice) * device.count, alignof(VkPhysicalDevice)
+    device.list = page_malloc(
+        device.context,
+        device.count * sizeof(VkPhysicalDevice),
+        alignof(VkPhysicalDevice)
     );
     if (!device.list) {
         LOG_ERROR("Failed to allocate physical device list.");
@@ -92,9 +94,9 @@ int main(void) {
         uint32_t queue_family_count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, NULL);
 
-        VkQueueFamilyProperties* queue_families = hash_page_malloc(
-            device.ctx,
-            sizeof(VkQueueFamilyProperties) * queue_family_count,
+        VkQueueFamilyProperties* queue_families = page_malloc(
+            device.context,
+            queue_family_count * sizeof(VkQueueFamilyProperties),
             alignof(VkQueueFamilyProperties)
         );
         vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, queue_families);
@@ -117,7 +119,7 @@ int main(void) {
             break;
         }
         if (device.physical == VK_NULL_HANDLE) {
-            hash_page_free(device.ctx, queue_families);
+            page_free(device.context, queue_families);
         }
     }
 
@@ -155,7 +157,7 @@ int main(void) {
         .pEnabledFeatures = &device.features,
     };
 
-    device.allocator = vkc_hash_callbacks(device.ctx);
+    device.allocator = vkc_hash_callbacks(device.context);
     result = vkCreateDevice(device.physical, &device.info, &device.allocator, &device.logical);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
@@ -167,8 +169,7 @@ int main(void) {
 
     vkDestroyDevice(device.logical, &device.allocator);
 cleanup_context:
-    hash_page_free_all(device.ctx);
-    hash_map_free(device.ctx);
+    page_allocator_free(device.context);
 cleanup_instance:
     vkc_instance_destroy(instance);
     return EXIT_SUCCESS;
