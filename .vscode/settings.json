@@ -54,6 +54,7 @@
     "exception": "c",
     "chrono": "c",
     "functional": "c",
-    "cstdlib": "c"
+    "cstdlib": "c",
+    "*.inc": "c"
   }
 }
