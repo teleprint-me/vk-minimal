@@ -7,7 +7,7 @@
 #ifndef VKC_EXTENSION_H
 #define VKC_EXTENSION_H
 
-#include "allocator/lease.h"
+#include "allocator/page.h"
 #include <vulkan/vulkan.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -23,7 +23,7 @@ typedef struct VkcExtensionResponse {
 } VkcExtensionResponse;
 
 typedef struct VkcExtension {
-    LeaseOwner* owner;
+    PageAllocator* allocator;
     VkcExtensionRequest* request;
     VkcExtensionResponse* response;
 } VkcExtension;

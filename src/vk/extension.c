@@ -2,26 +2,25 @@
  * @file src/vk/extension.c
  */
 
-#include "core/logger.h"
 #include "core/memory.h"
+#include "core/logger.h"
+#include "utf8/raw.h"
 #include "vk/extension.h"
 
-#include <string.h>
 #include <stdlib.h>
 
 /**
- * @section Internal Functions
+ * @section Private Extension Request and Response Interface
  */
 
 static VkcExtensionRequest*
-vkc_extension_request(LeaseOwner* owner, const char* const* names, uint32_t count) {
-    if (!owner || !names || !(*names) || count == 0) {
-        LOG_ERROR("Invalid arguments (owner=%p, names=%p, count=%u)", owner, names, count);
+vkc_extension_request(PageAllocator* allocator, const char* const* names, uint32_t count) {
+    if (!allocator || !names || !(*names) || count == 0) {
+        LOG_ERROR("Invalid arguments (allocator=%p, names=%p, count=%u)", allocator, names, count);
         return NULL;
     }
-    VkcExtensionRequest* req = lease_alloc_owned_address(
-        owner, sizeof(VkcExtensionRequest), alignof(VkcExtensionRequest)
-    );
+    VkcExtensionRequest* req
+        = page_malloc(allocator, sizeof(VkcExtensionRequest), alignof(VkcExtensionRequest));
     if (!req) {
         return NULL;
     }
@@ -29,13 +28,12 @@ vkc_extension_request(LeaseOwner* owner, const char* const* names, uint32_t coun
     return req;
 }
 
-static VkcExtensionResponse* vkc_extension_response(LeaseOwner* owner) {
-    if (!owner) {
+static VkcExtensionResponse* vkc_extension_response(PageAllocator* allocator) {
+    if (!allocator) {
         return NULL;
     }
-    VkcExtensionResponse* res = lease_alloc_owned_address(
-        owner, sizeof(VkcExtensionResponse), alignof(VkcExtensionResponse)
-    );
+    VkcExtensionResponse* res
+        = page_malloc(allocator, sizeof(VkcExtensionResponse), alignof(VkcExtensionResponse));
     if (!res) {
         return NULL;
     }
@@ -45,7 +43,7 @@ static VkcExtensionResponse* vkc_extension_response(LeaseOwner* owner) {
         return NULL;
     }
     size_t size = res->count * sizeof(VkExtensionProperties);
-    res->properties = lease_alloc_owned_address(owner, size, alignof(VkExtensionProperties));
+    res->properties = page_malloc(allocator, size, alignof(VkExtensionProperties));
     if (!res->properties) {
         LOG_ERROR("Failed to allocate extension properties array");
         return NULL;
@@ -68,33 +66,50 @@ VkcExtension* vkc_extension_create(const char* const* names, uint32_t count, siz
         LOG_ERROR("Invalid arguments to vkc_extension_create");
         return NULL;
     }
-    LeaseOwner* owner = lease_create_owner(capacity);
-    if (!owner) {
+
+    PageAllocator* allocator = page_allocator_create(capacity);
+    if (!allocator) {
         return NULL;
     }
-    VkcExtensionRequest* req = vkc_extension_request(owner, names, count);
+
+    VkcExtensionRequest* req = vkc_extension_request(allocator, names, count);
     if (!req) {
-        lease_free_owner(owner);
+        page_allocator_free(allocator);
         return NULL;
     }
-    VkcExtensionResponse* res = vkc_extension_response(owner);
+
+    VkcExtensionResponse* res = vkc_extension_response(allocator);
     if (!res) {
-        lease_free_owner(owner);
+        page_allocator_free(allocator);
         return NULL;
     }
-    VkcExtension* ext
-        = lease_alloc_owned_address(owner, sizeof(VkcExtension), alignof(VkcExtension));
+
+    VkcExtension* ext = page_malloc(allocator, sizeof(VkcExtension), alignof(VkcExtension));
     if (!ext) {
-        lease_free_owner(owner);
+        page_allocator_free(allocator);
         return NULL;
     }
-    *ext = (VkcExtension) {.owner = owner, .request = req, .response = res};
+
+    *ext = (VkcExtension) {
+        .allocator = allocator,
+        .request = req,
+        .response = res,
+    };
+
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[EXT_CREATE] %u requested extensions, %u found", count, res->count);
+#endif
+
     return ext;
 }
 
 void vkc_extension_free(VkcExtension* ext) {
-    if (ext && ext->owner) {
-        lease_free_owner(ext->owner);
+    if (!ext) {
+        return;
+    }
+
+    if (ext->allocator) {
+        page_allocator_free(ext->allocator);
     }
 }
 
@@ -114,7 +129,7 @@ bool vkc_extension_match_name(VkcExtension* ext, const char* name, VkExtensionPr
         return false;
     }
     for (uint32_t i = 0; i < ext->response->count; ++i) {
-        if (strcmp(name, ext->response->properties[i].extensionName) == 0) {
+        if (0 == utf8_raw_compare(name, ext->response->properties[i].extensionName)) {
             *out = ext->response->properties[i];
             return true;
         }
