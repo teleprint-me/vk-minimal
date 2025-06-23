@@ -98,7 +98,7 @@ bool vkc_physical_device_select_candidate(
     return false;
 }
 
-bool vkc_physical_device_select(
+bool vkc_physical_device_select_type(
     VkcDevice* device, VkPhysicalDevice* list, uint32_t count, VkPhysicalDeviceType type
 ) {
     // Pick first discrete GPU with compute support
@@ -109,6 +109,22 @@ bool vkc_physical_device_select(
     }
 
     LOG_ERROR("No suitable compute-capable discrete GPU found.");
+    return false;
+}
+
+bool vkc_physical_device_select(VkcDevice* device, VkPhysicalDevice* list, uint32_t count) {
+    VkPhysicalDeviceType preference[] = {
+        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_CPU,
+    };
+
+    for (size_t i = 0; i < sizeof(preference) / sizeof(VkPhysicalDeviceType); ++i) {
+        if (vkc_physical_device_select_type(device, list, count, preference[i])) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -144,22 +160,10 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
         return NULL;
     }
 
-    if (vkc_physical_device_select(
-            device, device_list, device_count, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-        )) {
-        return device;
-    }
-
-    if (vkc_physical_device_select(
-            device, device_list, device_count, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
-        )) {
-        return device;
-    }
-
-    if (vkc_physical_device_select(
-            device, device_list, device_count, VK_PHYSICAL_DEVICE_TYPE_CPU
-        )) {
-        return device;
+    if (!vkc_physical_device_select(device, device_list, device_count)) {
+        LOG_ERROR("No suitable Vulkan device found.");
+        page_allocator_free(pager);
+        return NULL;
     }
 
     return NULL;
