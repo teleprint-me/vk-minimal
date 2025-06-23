@@ -119,7 +119,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkPhysicalDevice* list, uint3
         VK_PHYSICAL_DEVICE_TYPE_CPU,
     };
 
-    for (size_t i = 0; i < sizeof(preference) / sizeof(VkPhysicalDeviceType); ++i) {
+    for (size_t i = 0; i < sizeof(preference) / sizeof(VkPhysicalDeviceType); i++) {
         if (vkc_physical_device_select_type(device, list, count, preference[i])) {
             return true;
         }
