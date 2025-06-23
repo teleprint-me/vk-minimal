@@ -134,6 +134,42 @@ int main(void) {
         }
     }
 
+    // Fallback: if no discrete GPU with compute, pick *any* device with compute support
+    if (VK_NULL_HANDLE == device->physical) {
+        for (uint32_t i = 0; i < device_count; ++i) {
+            VkPhysicalDevice candidate = device_list[i];
+            VkPhysicalDeviceProperties props = {0};
+            vkGetPhysicalDeviceProperties(candidate, &props);
+
+            uint32_t queue_family_count = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, NULL);
+
+            VkQueueFamilyProperties* queue_families = page_malloc(
+                device->pager,
+                sizeof(VkQueueFamilyProperties) * queue_family_count,
+                alignof(VkQueueFamilyProperties)
+            );
+            vkGetPhysicalDeviceQueueFamilyProperties(
+                candidate, &queue_family_count, queue_families
+            );
+
+            for (uint32_t j = 0; j < queue_family_count; ++j) {
+                if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    device->queue_family_index = j;
+                    device->physical = candidate;
+                    device->properties = props;
+                    vkGetPhysicalDeviceFeatures(candidate, &device->features);
+                    break;
+                }
+            }
+            if (VK_NULL_HANDLE != device->physical) {
+                break;
+            } else {
+                page_free(device->pager, queue_families);
+            }
+        }
+    }
+
     if (VK_NULL_HANDLE == device->physical) {
         LOG_ERROR("No suitable device with compute queue found.");
         page_allocator_free(device->pager);
