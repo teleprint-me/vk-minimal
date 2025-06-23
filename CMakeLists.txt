@@ -38,6 +38,7 @@ add_library(vk-minimal SHARED
     "src/vk/extension.c"
     "src/vk/allocator.c"
     "src/vk/instance.c"
+    "src/vk/device.c"
     "src/vk/shader.c"
 )
 target_include_directories(vk-minimal PUBLIC include dsa/include)
