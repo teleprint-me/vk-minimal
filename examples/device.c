@@ -6,6 +6,8 @@
 #include "core/memory.h"
 #include "core/logger.h"
 #include "allocator/page.h"
+#include "vk/validation.h"
+#include "vk/extension.h"
 #include "vk/allocator.h"
 #include "vk/instance.h"
 
@@ -15,159 +17,184 @@
 typedef struct VkcDevice {
     PageAllocator* pager;
 
-    VkPhysicalDevice* list;
     VkPhysicalDevice physical;
-    VkPhysicalDeviceProperties properties;
-    VkPhysicalDeviceFeatures features;
-    VkAllocationCallbacks allocator;
-
-    VkQueueFamilyProperties* queue_families;
-    VkDeviceQueueCreateInfo queue_info;
-    VkDeviceCreateInfo info;
     VkDevice logical;
     VkQueue queue;
 
-    uint32_t count;
+    VkPhysicalDeviceFeatures features;
+    VkPhysicalDeviceProperties properties;
+    VkAllocationCallbacks allocator;
+
     uint32_t queue_family_index;
 } VkcDevice;
 
 int main(void) {
+    /**
+     * Create the Vulkan Instance
+     */
+
     VkcInstance* instance = vkc_instance_create(1024);
     if (!instance) {
         LOG_ERROR("Failed to create Vulkan instance!");
         return EXIT_FAILURE;
     }
 
-    // PageAllocator* pager = page_allocator_create(1024);
-
     /**
      * Create a Vulkan Physical Device
-     *
-     * @note
-     * We can not allocate array memory to the stack because
-     * goto disrupts the control flow.
      */
 
-    VkcDevice device = {0};
-    device.queue_family_index = UINT32_MAX;
-    device.list = NULL;
-    device.physical = VK_NULL_HANDLE;
-    device.logical = VK_NULL_HANDLE;
-    device.pager = page_allocator_create(1024);
-    if (!device.pager) {
+    PageAllocator* pager = page_allocator_create(1024);
+    if (!pager) {
         LOG_ERROR("Failed to create device pager.");
-        goto cleanup_instance;
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
 
-    VkResult result = vkEnumeratePhysicalDevices(instance->object, &device.count, NULL);
-    if (result != VK_SUCCESS || device.count == 0) {
+    VkcDevice* device = page_malloc(pager, sizeof(VkcDevice), alignof(VkcDevice));
+    if (!device) {
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
+    }
+
+    device->pager = pager;
+    device->allocator = vkc_hash_callbacks(pager);
+    device->queue_family_index = UINT32_MAX;
+    device->physical = VK_NULL_HANDLE;
+    device->logical = VK_NULL_HANDLE;
+    device->queue = VK_NULL_HANDLE;
+
+    uint32_t device_count = 0;
+    VkResult result = vkEnumeratePhysicalDevices(instance->object, &device_count, NULL);
+    if (VK_SUCCESS != result || 0 == device_count) {
         LOG_ERROR(
-            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device.count
+            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device_count
         );
-        goto cleanup_context;
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
-    LOG_DEBUG("Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device.count);
 
-    device.list = page_malloc(
-        device.pager, device.count * sizeof(VkPhysicalDevice), alignof(VkPhysicalDevice)
+    LOG_DEBUG("Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device_count);
+
+    VkPhysicalDevice* device_list = page_malloc(
+        device->pager, device_count * sizeof(VkPhysicalDevice), alignof(VkPhysicalDevice)
     );
-    if (!device.list) {
+
+    if (!device_list) {
         LOG_ERROR("Failed to allocate physical device list.");
-        goto cleanup_context;
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
 
-    result = vkEnumeratePhysicalDevices(instance->object, &device.count, device.list);
-    if (result != VK_SUCCESS) {
+    result = vkEnumeratePhysicalDevices(instance->object, &device_count, device_list);
+    if (VK_SUCCESS != result) {
         LOG_ERROR("Failed to set physical device list.");
-        goto cleanup_context;
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
 
     // Try to find the first discrete GPU with compute support
-    for (uint32_t i = 0; i < device.count; ++i) {
-        VkPhysicalDevice tmp = device.list[i];
+    for (uint32_t i = 0; i < device_count; ++i) {
+        VkPhysicalDevice candidate = device_list[i];
         VkPhysicalDeviceProperties props = {0};
-        vkGetPhysicalDeviceProperties(tmp, &props);
+        vkGetPhysicalDeviceProperties(candidate, &props);
 
         uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, NULL);
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, NULL);
 
         VkQueueFamilyProperties* queue_families = page_malloc(
-            device.pager,
+            device->pager,
             queue_family_count * sizeof(VkQueueFamilyProperties),
             alignof(VkQueueFamilyProperties)
         );
-        vkGetPhysicalDeviceQueueFamilyProperties(tmp, &queue_family_count, queue_families);
 
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, queue_families);
         LOG_DEBUG("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
 
         for (uint32_t j = 0; j < queue_family_count; ++j) {
             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-                    && device.physical == VK_NULL_HANDLE) {
-                    device.physical = tmp;
-                    device.properties = props;
-                    device.queue_family_index = j;
-                    device.queue_families = queue_families;
+                if (VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU == props.deviceType
+                    && VK_NULL_HANDLE == device->physical) {
+                    device->queue_family_index = j;
+                    device->physical = candidate;
+                    device->properties = props;
+                    vkGetPhysicalDeviceFeatures(candidate, &device->features);
                     break;
                 }
             }
         }
-        if (device.physical != VK_NULL_HANDLE) {
+
+        if (VK_NULL_HANDLE != device->physical) {
             break;
-        }
-        if (device.physical == VK_NULL_HANDLE) {
-            page_free(device.pager, queue_families);
+        } else {
+            page_free(device->pager, queue_families);
         }
     }
 
-    if (device.physical == VK_NULL_HANDLE) {
+    if (VK_NULL_HANDLE == device->physical) {
         LOG_ERROR("No suitable device with compute queue found.");
-        goto cleanup_context;
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
+
     LOG_DEBUG(
-        "Selected: %s (family index = %u)", device.properties.deviceName, device.queue_family_index
+        "Selected: %s (family index = %u)",
+        device->properties.deviceName,
+        device->queue_family_index
     );
-    VkQueueFamilyProperties props = device.queue_families[device.queue_family_index];
-    LOG_DEBUG("Selected queue flags: 0x%x", props.queueFlags);
 
     /**
      * Create a Vulkan Logical Device
      */
 
     static const float queue_priorities[1] = {1.0f};
-    device.queue_info = (VkDeviceQueueCreateInfo) {
+    VkDeviceQueueCreateInfo queue_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = device.queue_family_index,
+        .queueFamilyIndex = device->queue_family_index,
         .queueCount = 1,
         .pQueuePriorities = queue_priorities,
     };
 
-    device.info = (VkDeviceCreateInfo) {
+    /// @note Extension returns -7 (VK_ERROR_EXTENSION_NOT_PRESENT)
+    VkcValidationLayer* validation
+        = vkc_validation_layer_create((const char*[]) {"VK_LAYER_KHRONOS_validation"}, 1, 1024);
+    // VkcExtension* extension = vkc_extension_create((const char*[]) {"VK_EXT_debug_utils"}, 1, 1024);
+
+    VkDeviceCreateInfo device_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = NULL,
         .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &device.queue_info,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = NULL,
-        .pEnabledFeatures = &device.features,
+        .pQueueCreateInfos = &queue_info,
+        // .enabledExtensionCount = extension->request->count,
+        // .ppEnabledExtensionNames = extension->request->names,
+        .enabledLayerCount = validation->request->count,
+        .ppEnabledLayerNames = validation->request->names,
+        .pEnabledFeatures = &device->features,
     };
 
-    device.allocator = vkc_hash_callbacks(device.pager);
-    result = vkCreateDevice(device.physical, &device.info, &device.allocator, &device.logical);
+    vkc_validation_layer_free(validation);
+    // vkc_extension_free(extension);
+
+    result = vkCreateDevice(device->physical, &device_info, &device->allocator, &device->logical);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
-        goto cleanup_context;
+        page_allocator_free(device->pager);
+        vkc_instance_destroy(instance);
+        return EXIT_FAILURE;
     }
+
     LOG_DEBUG("Logical device created.");
 
-    vkGetDeviceQueue(device.logical, device.queue_family_index, 0, &device.queue);
+    vkGetDeviceQueue(device->logical, device->queue_family_index, 0, &device->queue);
+    LOG_DEBUG("Logical device queue created.");
 
-    vkDestroyDevice(device.logical, &device.allocator);
-cleanup_context:
-    page_allocator_free(device.pager);
-cleanup_instance:
+    // Cleanup
+    vkDestroyDevice(device->logical, &device->allocator);
+    page_allocator_free(device->pager);
     vkc_instance_destroy(instance);
     return EXIT_SUCCESS;
 }
