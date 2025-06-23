@@ -201,6 +201,8 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
         return NULL;
     }
 
+    page_free(pager, device_list); // Prevent silent leaks
+
     VkDeviceQueueCreateInfo queue_info = vkc_physical_device_queue_create_info(device);
     VkDeviceCreateInfo logical_info = vkc_logical_device_create_info(device, queue_info);
 
