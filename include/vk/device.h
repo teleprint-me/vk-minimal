@@ -11,13 +11,16 @@
 
 typedef struct VkcDevice {
     PageAllocator* pager;
+
     VkPhysicalDevice physical;
-    VkPhysicalDeviceFeatures features;
-    VkPhysicalDeviceProperties properties; // optional
     VkDevice logical;
     VkQueue queue;
-    uint32_t queue_family_index;
+
+    VkPhysicalDeviceFeatures features;
+    VkPhysicalDeviceProperties properties;
     VkAllocationCallbacks allocator;
+
+    uint32_t queue_family_index;
 } VkcDevice;
 
 VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size);
