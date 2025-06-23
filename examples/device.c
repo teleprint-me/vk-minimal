@@ -128,8 +128,43 @@ bool vkc_physical_device_select(VkcDevice* device, VkPhysicalDevice* list, uint3
     return false;
 }
 
+VkDeviceQueueCreateInfo vkc_physical_device_queue_create_info(VkcDevice* device) {
+    static const float queue_priorities[1] = {1.0f};
+    return (VkDeviceQueueCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = device->queue_family_index,
+        .queueCount = 1,
+        .pQueuePriorities = queue_priorities,
+    };
+}
+
+VkDeviceCreateInfo vkc_logical_device_create_info(VkcDevice* device, VkDeviceQueueCreateInfo queue_info) {
+    /// @note Extension returns -7 (VK_ERROR_EXTENSION_NOT_PRESENT)
+    VkcValidationLayer* validation
+        = vkc_validation_layer_create((const char*[]) {"VK_LAYER_KHRONOS_validation"}, 1, 1024);
+    // VkcExtension* extension = vkc_extension_create((const char*[]) {"VK_EXT_debug_utils"}, 1,
+    // 1024);
+
+    VkDeviceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = NULL,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queue_info,
+        // .enabledExtensionCount = extension->request->count,
+        // .ppEnabledExtensionNames = extension->request->names,
+        .enabledLayerCount = validation->request->count,
+        .ppEnabledLayerNames = validation->request->names,
+        .pEnabledFeatures = &device->features,
+    };
+
+    vkc_validation_layer_free(validation);
+    // vkc_extension_free(extension);
+
+    return create_info;
+}
+
 VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
-    PageAllocator* pager = page_allocator_create(1024);
+    PageAllocator* pager = page_allocator_create(page_size);
     if (!pager) {
         LOG_ERROR("Failed to create device pager.");
         return NULL;
@@ -166,7 +201,18 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
         return NULL;
     }
 
-    return NULL;
+    VkDeviceQueueCreateInfo queue_info = vkc_physical_device_queue_create_info(device);
+    VkDeviceCreateInfo logical_info = vkc_logical_device_create_info(device, queue_info);
+
+    VkResult result = vkCreateDevice(device->physical, &logical_info, &device->allocator, &device->logical);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR("Failed to create logical device: %d", result);
+        page_allocator_free(device->pager);
+        return NULL;
+    }
+
+    vkGetDeviceQueue(device->logical, device->queue_family_index, 0, &device->queue);
+    return device;
 }
 
 void vkc_device_destroy(VkcDevice* device) {
