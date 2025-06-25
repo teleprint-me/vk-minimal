@@ -1,5 +1,5 @@
 /**
- * @file src/vk/alloc.c
+ * @file src/vk/shader.c
  * @brief A wrapper for interfacing with SPIR-V Compute Shaders.
  */
 
