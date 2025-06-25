@@ -62,7 +62,10 @@ bool vkc_physical_device_select_candidate(
     );
 
     vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, queue_families);
-    LOG_DEBUG("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
+
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[VK_DEVICE] Candidate %u: %s, type=%d", i, props.deviceName, props.deviceType);
+#endif
 
     for (uint32_t j = 0; j < queue_family_count; ++j) {
         if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
@@ -77,6 +80,9 @@ bool vkc_physical_device_select_candidate(
     }
 
     if (VK_NULL_HANDLE != device->physical) {
+#if defined(DEBUG) && (1 == DEBUG)
+        LOG_DEBUG("[VK_DEVICE] Selected %u: %s, type=%d", i, props.deviceName, props.deviceType);
+#endif
         return true;
     }
 
@@ -124,7 +130,8 @@ VkDeviceQueueCreateInfo vkc_physical_device_queue_create_info(VkcDevice* device)
     };
 }
 
-VkDeviceCreateInfo vkc_logical_device_create_info(VkcDevice* device, VkDeviceQueueCreateInfo queue_info) {
+VkDeviceCreateInfo
+vkc_logical_device_create_info(VkcDevice* device, VkDeviceQueueCreateInfo queue_info) {
     /// @note Extension returns -7 (VK_ERROR_EXTENSION_NOT_PRESENT)
     VkcValidationLayer* validation
         = vkc_validation_layer_create((const char*[]) {"VK_LAYER_KHRONOS_validation"}, 1, 1024);
@@ -180,11 +187,24 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
         return NULL;
     }
 
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[VK_DEVICE] count=%u", device_count);
+#endif
+
     VkPhysicalDevice* device_list = vkc_physical_device_list(pager, instance, device_count);
     if (!device_list) {
         page_allocator_free(pager);
         return NULL;
     }
+
+#if defined(DEBUG) && (1 == DEBUG)
+    for (size_t i = 0; i < device_count; i++) {
+        VkPhysicalDevice tmp = device_list[i];
+        VkPhysicalDeviceProperties props = {0};
+        vkGetPhysicalDeviceProperties(tmp, &props);
+        LOG_DEBUG("[VK_DEVICE] Option %u: %s, type=%d", i, props.deviceName, props.deviceType);
+    }
+#endif
 
     if (!vkc_physical_device_select(device, device_list, device_count)) {
         LOG_ERROR("No suitable Vulkan device found.");
@@ -197,7 +217,8 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
     VkDeviceQueueCreateInfo queue_info = vkc_physical_device_queue_create_info(device);
     VkDeviceCreateInfo logical_info = vkc_logical_device_create_info(device, queue_info);
 
-    VkResult result = vkCreateDevice(device->physical, &logical_info, &device->allocator, &device->logical);
+    VkResult result
+        = vkCreateDevice(device->physical, &logical_info, &device->allocator, &device->logical);
     if (result != VK_SUCCESS) {
         LOG_ERROR("Failed to create logical device: %d", result);
         page_allocator_free(device->pager);
@@ -205,6 +226,13 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
     }
 
     vkGetDeviceQueue(device->logical, device->queue_family_index, 0, &device->queue);
+
+#if defined(DEBUG) && (1 == DEBUG)
+    LOG_DEBUG("[VK_DEVICE] Vulkan physical device created successfully @ %p", device->physical);
+    LOG_DEBUG("[VK_DEVICE] Vulkan logical device created successfully @ %p", device->logical);
+    LOG_DEBUG("[VK_DEVICE] Vulkan device queue created successfully @ %p", device->queue);
+#endif
+
     return device;
 }
 
