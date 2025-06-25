@@ -64,14 +64,14 @@ int main(void) {
     rewind(shader_file);
 
     /// @note The byte code pointer is a uint32_t pointer, not a char pointer.
-    uint32_t* buffer = page_malloc(pager, shader_size * sizeof(uint32_t), alignof(uint32_t));
-    if (!buffer) {
+    uint32_t* shader_code = page_malloc(pager, shader_size * sizeof(uint32_t), alignof(uint32_t));
+    if (!shader_code) {
         fclose(shader_file);
         LOG_ERROR("Failed to allocate memory for shader file");
         return EXIT_FAILURE;
     }
 
-    fread(buffer, sizeof(uint32_t), shader_size, shader_file);
+    fread(shader_code, sizeof(uint32_t), shader_size, shader_file);
     fclose(shader_file);
 
     page_allocator_free(pager);
