@@ -1,6 +1,5 @@
 /**
  * @file examples/instance.c
- * @brief Simple example showcasing how to create and destroy a custom VkcInstance object.
  */
 
 #include "core/logger.h"

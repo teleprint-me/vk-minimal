@@ -1,6 +1,5 @@
 /**
- * @file examples/instance.c
- * @brief Simple example showcasing how to create and destroy a custom VkcDevice object.
+ * @file examples/device.c
  */
 
 #include "core/logger.h"
