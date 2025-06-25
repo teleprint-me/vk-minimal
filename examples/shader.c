@@ -71,7 +71,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    fread(buffer, 1, shader_size, shader_file);
+    fread(buffer, sizeof(uint32_t), shader_size, shader_file);
     fclose(shader_file);
 
     page_allocator_free(pager);
