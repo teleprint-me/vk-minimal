@@ -43,6 +43,10 @@ int main(void) {
      */
 
     VkcDevice* device = vkc_device_create(instance, 1024);
+    if (!device) {
+        LOG_ERROR("Failed to create Vulkan device!");
+        return EXIT_FAILURE;
+    }
 
     /**
      * Create a Vulkan Shader
