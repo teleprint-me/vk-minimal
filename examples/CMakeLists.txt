@@ -3,6 +3,7 @@ set(EXAMPLES
     "extension"
     "instance"
     "device"
+    "shader"
     "pt" # POSIX Threads
     # "vk" # Vulkan
 )
