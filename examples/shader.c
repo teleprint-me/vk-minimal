@@ -7,14 +7,17 @@
 #include "core/logger.h"
 #include "allocator/page.h"
 #include "utf8/raw.h"
+#include "vk/allocator.h"
 #include "vk/instance.h"
 #include "vk/device.h"
 
 #include <unistd.h>
 #include <stdlib.h>
 
-
 int main(void) {
+    // Create a temporary allocator until skeleton is operational
+    PageAllocator* pager = page_allocator_create(1024);
+
     // Use static constant file paths to keep things simple for now
     static char cwd[PATH_MAX];
     if (!getcwd(cwd, sizeof(cwd))) {
@@ -23,10 +26,12 @@ int main(void) {
     }
 
     char* shader_path = utf8_raw_concat(cwd, "/build/shaders/mean.spv");
+    if (!shader_path) {
+        LOG_ERROR("Failed to join paths.");
+        return EXIT_FAILURE;
+    }
+    page_add(pager, shader_path, utf8_raw_byte_count(shader_path), alignof(char));
     LOG_INFO("[SHADER] shader_path='%s'", shader_path);
-
-    // Create a temporary allocator until skeleton is operational
-    PageAllocator* pager = page_allocator_create(1024);
 
     /**
      * Create a Vulkan Instance
@@ -58,6 +63,7 @@ int main(void) {
         LOG_ERROR("Failed to open SPIR-V file: %s", shader_path);
         return EXIT_FAILURE;
     }
+    page_free(pager, shader_path);
 
     fseek(shader_file, 0, SEEK_END);
     uint32_t shader_size = (uint32_t) ftell(shader_file);
@@ -74,7 +80,26 @@ int main(void) {
     fread(shader_code, sizeof(uint32_t), shader_size, shader_file);
     fclose(shader_file);
 
+    VkShaderModuleCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = shader_size,
+        .pCode = shader_code,
+    };
+
+    VkShaderModule shader_module;
+    VkAllocationCallbacks allocator = vkc_hash_callbacks(pager);
+    VkResult result
+        = vkCreateShaderModule(device->logical, &create_info, &allocator, &shader_module);
+    page_free(pager, shader_code);
+
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("Failed to create shader module from %s", shader_path);
+        return EXIT_FAILURE;
+    }
+
+    vkDestroyShaderModule(device->logical, shader_module, &allocator);
     page_allocator_free(pager);
+
     vkc_device_destroy(device);
     vkc_instance_destroy(instance);
     return EXIT_SUCCESS;
