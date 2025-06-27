@@ -80,20 +80,14 @@ int main(void) {
         );
     }
 
-    char const** vkInstanceLayerPropertyNames = page_malloc(
-        pager,
-        vkInstanceLayerPropertyCount * sizeof(char*),
-        alignof(char*)
-    );
-    if (NULL == vkInstanceLayerPropertyNames) {
-        LOG_ERROR("[VkLayerProperties] Failed to allocate instance layer property names.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
-    }
-
+    bool vkInstanceLayerPropertyFound = false;
+    char const* vkInstanceLayerPropertyNames[] = {"VK_LAYER_KHRONOS_validation"};
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
-        vkInstanceLayerPropertyNames[i] = vkInstanceLayerProperties[i].layerName;
-        LOG_INFO("[VkCreateInfo] Enabling Layer: %s", vkInstanceLayerPropertyNames[i]);
+        if (0 == utf8_raw_compare(vkInstanceLayerProperties[i].layerName, vkInstanceLayerPropertyNames[0])) {
+            vkInstanceLayerPropertyFound = true;
+            LOG_INFO("[VkCreateInfo] Enabling Layer: %s", vkInstanceLayerProperties[i].layerName);
+            break;
+        }
     }
 
     /** @} */
@@ -200,11 +194,14 @@ int main(void) {
     VkInstanceCreateInfo vkInstanceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &vkInstanceAppInfo,
-        .enabledLayerCount = vkInstanceLayerPropertyCount,
-        .ppEnabledLayerNames = vkInstanceLayerPropertyNames,
         .enabledExtensionCount = vkInstanceExtensionPropertyCount,
         .ppEnabledExtensionNames = vkInstanceExtensionPropertyNames,
     };
+
+    if (vkInstanceLayerPropertyFound) {
+        vkInstanceCreateInfo.enabledLayerCount = 1;
+        vkInstanceCreateInfo.ppEnabledLayerNames = vkInstanceLayerPropertyNames;
+    }
 
     VkInstance vkInstance = VK_NULL_HANDLE;
     result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
@@ -215,7 +212,6 @@ int main(void) {
     }
 
     // Free all instance properties
-    page_free(pager, vkInstanceLayerPropertyNames);
     page_free(pager, vkInstanceLayerProperties);
     page_free(pager, vkInstanceExtensionPropertyNames);
     page_free(pager, vkInstanceExtensionProperties);
