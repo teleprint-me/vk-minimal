@@ -42,7 +42,18 @@ apt update && apt install -y \
 
 ```sh
 pacman -Syu
-pacman -S --noconfirm vulkan-headers vulkan-extra-layers vulkan-extra-tools
+pacman -S --noconfirm \
+  vulkan-headers \
+  vulkan-validation-layers \
+  vulkan-extra-layers \
+  vulkan-tools \
+  vulkan-extra-tools \
+  vulkan-icd-loader \
+  vulkan-utility-libraries \
+  renderdoc \
+  spirv-headers \
+  spirv-tools \
+  glslang
 ```
 
 ## Cloning
