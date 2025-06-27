@@ -51,8 +51,11 @@ LSAN_OPTIONS="suppressions=$SUPPRESSION_FILE"
 # Preload AddressSanitizer runtime library
 LD_PRELOAD=$(gcc -print-file-name=libasan.so)
 
+# Enable Vulkan Loader Debugging
+VK_LOADER_DEBUG=all
+
 # Export the required environment variables
-export LSAN_OPTIONS LD_PRELOAD
+export LSAN_OPTIONS LD_PRELOAD VK_LOADER_DEBUG
 
 # Notes for Future Maintenance:
 #   - The 128-byte leak reported by ASAN is harmless.
