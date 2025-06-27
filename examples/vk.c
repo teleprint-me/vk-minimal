@@ -17,7 +17,7 @@
 
 int main(void) {
     /**
-     * @section Page Allocator to tack memory allocations.
+     * @name Page Allocator
      * @{
      */
 
@@ -27,7 +27,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @section Global result variable
+     * @name Global Result
      * @{
      */
 
@@ -36,7 +36,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @section Get the instance layer properties
+     * @name Instance Layer Properties
      * @{
      */
 
@@ -93,7 +93,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @section Get the extension layer properties
+     * @name Instance Extension Properties
      * @{
      */
 
@@ -164,7 +164,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @section Create a Vulkan Instance
+     * @name Vulkan Instance
      * @{
      */
 
