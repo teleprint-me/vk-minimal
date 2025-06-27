@@ -1,6 +1,4 @@
 set(EXAMPLES
-    "validation"
-    "extension"
     "instance"
     "device"
     "shader"
