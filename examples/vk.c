@@ -132,20 +132,23 @@ int main(void) {
         );
     }
 
-    char const** vkInstanceExtensionPropertyNames = page_malloc(
-        pager,
-        vkInstanceExtensionPropertyCount * sizeof(char*),
-        alignof(char*)
-    );
-    if (NULL == vkInstanceExtensionPropertyNames) {
-        LOG_ERROR("[VkExtensionProperties] Failed to allocate instance extension names.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
-    }
+    uint32_t vkInstanceExtensionPropertyNameCount = 6;
+    char const* vkInstanceExtensionPropertyNames[] = {
+        "VK_KHR_device_group_creation",
+        "VK_KHR_external_fence_capabilities",
+        "VK_KHR_external_memory_capabilities",
+        "VK_KHR_external_semaphore_capabilities",
+        "VK_KHR_get_physical_device_properties2",
+        "VK_EXT_debug_utils",
+    };
 
-    for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
-        vkInstanceExtensionPropertyNames[i] = vkInstanceExtensionProperties[i].extensionName;
-        LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
+    bool vkInstanceExtensionPropertyFound = true;
+    for (uint32_t i = 0; i < vkInstanceExtensionPropertyNameCount; i++) {
+        for (uint32_t j = 0; j < vkInstanceExtensionPropertyCount; j++) {
+            if (0 == utf8_raw_compare(vkInstanceExtensionPropertyNames[i], vkInstanceExtensionProperties[j].extensionName)) {
+                LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
+            }
+        }
     }
 
     /** @} */
