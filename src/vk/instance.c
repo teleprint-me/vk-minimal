@@ -128,7 +128,7 @@ VkcInstance* vkc_instance_create(size_t page_size) {
     }
 
     instance->pager = pager;
-    instance->allocator = vkc_hash_callbacks(instance->pager);
+    instance->allocator = vkc_page_callbacks(instance->pager);
 
     vkc_instance_init_app_info(instance, "Compute", "Compute Engine");
     vkc_instance_init_info(instance);

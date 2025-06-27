@@ -179,7 +179,7 @@ VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
     device->logical = VK_NULL_HANDLE;
     device->queue = VK_NULL_HANDLE;
     device->pager = pager;
-    device->allocator = vkc_hash_callbacks(pager);
+    device->allocator = vkc_page_callbacks(pager);
 
     uint32_t device_count = vkc_physical_device_count(instance);
     if (0 == device_count) {

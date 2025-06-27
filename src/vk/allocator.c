@@ -122,7 +122,7 @@ void VKAPI_CALL vkc_internal_free(
  * {@
  */
 
-VkAllocationCallbacks VKAPI_CALL vkc_hash_callbacks(PageAllocator* allocator) {
+VkAllocationCallbacks VKAPI_CALL vkc_page_callbacks(PageAllocator* allocator) {
     return (VkAllocationCallbacks) {
         .pUserData = allocator,
         .pfnAllocation = vkc_malloc,

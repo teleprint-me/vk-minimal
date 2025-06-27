@@ -87,7 +87,7 @@ int main(void) {
     };
 
     VkShaderModule shader_module;
-    VkAllocationCallbacks allocator = vkc_hash_callbacks(pager);
+    VkAllocationCallbacks allocator = vkc_page_callbacks(pager);
     VkResult result
         = vkCreateShaderModule(device->logical, &create_info, &allocator, &shader_module);
     page_free(pager, shader_code);

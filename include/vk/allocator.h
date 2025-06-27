@@ -32,7 +32,7 @@ extern "C" {
  * @param allocator A pointer to an initialized `PageAllocator` instance.
  * @return A fully populated `VkAllocationCallbacks` struct referencing your allocator.
  */
-VkAllocationCallbacks VKAPI_CALL vkc_hash_callbacks(PageAllocator* allocator);
+VkAllocationCallbacks VKAPI_CALL vkc_page_callbacks(PageAllocator* allocator);
 
 #ifdef __cplusplus
 }
