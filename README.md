@@ -56,6 +56,8 @@ pacman -S --noconfirm \
   glslang
 ```
 
+_**NOTE:** See [Vulkan](https://wiki.archlinux.org/title/Vulkan) for more information._
+
 ## Cloning
 
 This project includes `dsa` as a submodule for data structures and algorithms.
