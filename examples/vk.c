@@ -15,10 +15,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-/**
- * Create a Vulkan Instance
- */
-
 int main(void) {
     /**
      * @section Page Allocator to tack memory allocations.
@@ -84,6 +80,21 @@ int main(void) {
         );
     }
 
+    char const** vkInstanceLayerPropertyNames = page_malloc(
+        pager,
+        vkInstanceLayerPropertyCount * sizeof(char*),
+        alignof(char*)
+    );
+    if (NULL == vkInstanceLayerPropertyNames) {
+        LOG_ERROR("[VkLayerProperties] Failed to allocate instance layer property names.");
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
+        vkInstanceLayerPropertyNames[i] = vkInstanceLayerProperties[i].layerName;
+    }
+
     /** @} */
 
     /**
@@ -119,11 +130,26 @@ int main(void) {
     }
 
     // Log the results to standard output
-    LOG_INFO("[VkExtensionProperties] Found %zu instance extension properties.");
+    LOG_INFO("[VkExtensionProperties] Found %u instance extension properties.", vkInstanceExtensionPropertyCount);
     for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
-        LOG_INFO("[VkExtensionProperties] i=%zu, name=%s, version=%s", 
+        LOG_INFO("[VkExtensionProperties] i=%u, name=%s, version=%u", 
             i, vkInstanceExtensionProperties[i].extensionName, vkInstanceExtensionProperties[i].specVersion
         );
+    }
+
+    char const** vkInstanceExtensionPropertyNames = page_malloc(
+        pager,
+        vkInstanceExtensionPropertyCount * sizeof(char*),
+        alignof(char*)
+    );
+    if (NULL == vkInstanceExtensionPropertyNames) {
+        LOG_ERROR("[VkExtensionProperties] Failed to allocate instance extension names.");
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
+        vkInstanceExtensionPropertyNames[i] = vkInstanceExtensionProperties[i].extensionName;
     }
 
     /** @} */
@@ -173,20 +199,24 @@ int main(void) {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &vkInstanceAppInfo,
         .enabledLayerCount = vkInstanceLayerPropertyCount,
-        .ppEnabledLayerNames = NULL, /// @todo Create an array of available layer names
+        .ppEnabledLayerNames = vkInstanceLayerPropertyNames,
         .enabledExtensionCount = vkInstanceExtensionPropertyCount,
-        .ppEnabledExtensionNames = NULL, /// @todo Create an array of available extension names
+        .ppEnabledExtensionNames = vkInstanceExtensionPropertyNames,
     };
 
-    /// @todo free all instance properties
-    // page_free() // always free unused resources
-
     VkInstance vkInstance = VK_NULL_HANDLE;
-    result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, vkInstance);
-    if (vkInstance == VK_NULL_HANDLE) {
+    result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
+    if (VK_SUCCESS == result) {
+        LOG_ERROR("[VkInstance] Failed to create instance object.");
         page_allocator_free(pager);
         return EXIT_FAILURE;
     }
+
+    // Free all instance properties
+    page_free(pager, vkInstanceLayerPropertyNames);
+    page_free(pager, vkInstanceLayerProperties);
+    page_free(pager, vkInstanceExtensionPropertyNames);
+    page_free(pager, vkInstanceExtensionProperties);
 
     /** @} */
 
