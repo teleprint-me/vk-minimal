@@ -93,6 +93,7 @@ int main(void) {
 
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
         vkInstanceLayerPropertyNames[i] = vkInstanceLayerProperties[i].layerName;
+        LOG_INFO("[VkCreateInfo] Enabling Layer: %s", vkInstanceLayerPropertyNames[i]);
     }
 
     /** @} */
@@ -150,6 +151,7 @@ int main(void) {
 
     for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
         vkInstanceExtensionPropertyNames[i] = vkInstanceExtensionProperties[i].extensionName;
+        LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
     }
 
     /** @} */
@@ -207,7 +209,7 @@ int main(void) {
     VkInstance vkInstance = VK_NULL_HANDLE;
     result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkInstance] Failed to create instance object.");
+        LOG_ERROR("[VkInstance] Failed to create instance object: %d", result);
         page_allocator_free(pager);
         return EXIT_FAILURE;
     }
