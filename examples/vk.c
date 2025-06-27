@@ -47,7 +47,7 @@ int main(void) {
     uint32_t vkInstanceLayerPropertyCount = 0;
     result = vkEnumerateInstanceLayerProperties(vkInstanceLayerPropertyCount, NULL);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer properties.");
+        LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer property count.");
         goto cleanup_pager;
     }
 
@@ -58,7 +58,7 @@ int main(void) {
     );
     if (NULL == vkInstanceLayerProperties) {
         LOG_ERROR(
-            "[VkLayerProperties] Failed to allocate %zu instance property objects.", 
+            "[VkLayerProperties] Failed to allocate %zu instance layer property objects.", 
             vkInstanceLayerPropertyCount
         );
         goto cleanup_pager;
@@ -73,16 +73,53 @@ int main(void) {
         goto cleanup_pager;
     }
 
+    // Log the results to standard output
     LOG_INFO("[VkLayerProperties] Found %zu instance layer properties.");
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
-        LOG_INFO("[VkLayerProperties] i=%zu, name=%s, description=%s", i, vkInstanceLayerProperties[i].layerName, vkInstanceLayerProperties[i].description);
+        LOG_INFO("[VkLayerProperties] i=%zu, name=%s, description=%s", 
+            i, vkInstanceLayerProperties[i].layerName, vkInstanceLayerProperties[i].description
+        );
     }
 
     /** @} */
 
     /**
-     * Get the extension layer properties
+     * @section Get the extension layer properties
+     * @{
      */
+
+    uint32_t vkInstanceExtensionPropertyCount = 0;
+    result = vkEnumerateInstanceExtensionProperties(NULL, vkInstanceExtensionPropertyCount, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkExtensionProperties] Failed to enumerate instance extension property count.");
+        goto cleanup_pager;
+    }
+
+    VkExtensionProperties* vkInstanceExtensionProperties = page_malloc(
+        pager,
+        vkInstanceExtensionPropertyCount * sizeof(VkExtensionProperties),
+        alignof(VkExtensionProperties)
+    );
+    if (NULL == vkInstanceExtensionProperties) {
+        LOG_ERROR("[VkExtensionProperties] Failed to allocate %zu instance extension property objects.");
+        goto cleanup_pager;
+    }
+
+    result = vkEnumerateInstanceExtensionProperties(NULL, vkInstanceExtensionPropertyCount, vkInstanceExtensionProperties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkExtensionProperties] Failed to enumerate instance extension properties.");
+        goto cleanup_pager;
+    }
+
+    // Log the results to standard output
+    LOG_INFO("[VkExtensionProperties] Found %zu instance extension properties.");
+    for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
+        LOG_INFO("[VkExtensionProperties] i=%zu, name=%s, version=%s", 
+            i, vkInstanceExtensionProperties[i].extensionName, vkInstanceExtensionProperties[i].specVersion
+        );
+    }
+
+    /** @} */
 
     /**
      * @section Create a Vulkan Instance
