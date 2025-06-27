@@ -1,9 +1,14 @@
-// examples/vk.c
-#include "core/logger.h"
-#include "core/memory.h"
-#include "allocator/lease.h"
-#include "vk/allocator.h"
+/**
+ * @file examples/vk.c
+ */
 
+#include "core/posix.h"
+#include "core/memory.h"
+#include "core/logger.h"
+#include "allocator/page.h"
+#include "utf8/raw.h"
+
+#include "vk/allocator.h"
 #include <vulkan/vulkan.h>
 
 #include <stdalign.h>
@@ -14,128 +19,82 @@
  * Create a Vulkan Instance
  */
 
-uint32_t vk_api_version(void) {
-    uint32_t apiVersion;
-    if (vkEnumerateInstanceVersion(&apiVersion) != VK_SUCCESS) {
-        fprintf(stderr, "Failed to enumerate Vulkan instance version.\n");
-        return 0;
-    }
-    return apiVersion;
-}
-
-VkApplicationInfo vk_create_app_info(void) {
-    VkApplicationInfo app_info = {0}; // Zero-initialize the info instance
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = "vk-minimal";
-    app_info.applicationVersion = VK_API_VERSION_1_4;
-    app_info.pEngineName = "vk-compute";
-    app_info.engineVersion = VK_API_VERSION_1_4;
-    app_info.apiVersion = vk_api_version();
-    return app_info;
-}
-
-VkInstanceCreateInfo vk_create_instance_info(VkApplicationInfo* app_info) {
-    VkInstanceCreateInfo instance_info = {0};
-    // Create instance info
-    // No extensions or validation layers for now
-    instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instance_info.pApplicationInfo = app_info;
-    return instance_info;
-}
-
-VkInstance vk_create_instance(const VkAllocationCallbacks* allocator) {
-    VkApplicationInfo app_info = vk_create_app_info();
-    VkInstanceCreateInfo instance_info = vk_create_instance_info(&app_info);
-    VkInstance instance = VK_NULL_HANDLE;
-
-    VkResult result = vkCreateInstance(&instance_info, allocator, &instance);
-    if (result != VK_SUCCESS) {
-        LOG_ERROR("Failed to create Vulkan instance: %d", result);
-        return VK_NULL_HANDLE;
-    }
-
-    LOG_INFO("Vulkan instance created successfully.");
-    return instance;
-}
-
-/**
- * Create Validation Layers
- */
-
-// Define validation layers
-#define VALIDATION_LAYER_COUNT 1 /// @warning Cannot be a variable
-const char* const validation_layers[VALIDATION_LAYER_COUNT] = {"VK_LAYER_KHRONOS_validation"};
-
-VkResult vk_check_validation_layer_support(const char* const* layers, uint32_t layer_count) {
-    if (!layers || !(*layers) || 0 == layer_count) {
-        LOG_ERROR("%s: Invalid arguments (layers=%p, layer_count=%u)\n", __func__, layers, layer_count);
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
-
-    VkResult result;
-    uint32_t property_count = 0;
-    result = vkEnumerateInstanceLayerProperties(&property_count, VK_NULL_HANDLE);
-    if (VK_SUCCESS != result) {
-        LOG_ERROR("%s: Failed to enumerate layer property count (error code: %u)\n", __func__, result);
-        return result;
-    }
-    if (0 == property_count) {
-        LOG_ERROR("%s: No validation layers available\n", __func__);
-        return VK_ERROR_LAYER_NOT_PRESENT;
-    }
-
-    VkLayerProperties* properties = memory_alloc(property_count, alignof(VkLayerProperties));
-    if (!properties) {
-        LOG_ERROR("%s: Memory allocation failed for layer properties\n", __func__);
-        return VK_ERROR_OUT_OF_HOST_MEMORY;
-    }
-
-    result = vkEnumerateInstanceLayerProperties(&property_count, properties);
-    if (VK_SUCCESS != result) {
-        LOG_ERROR("%s: Failed to enumerate layer properties (error code: %u)\n", __func__, result);
-        free(properties);
-        return result;
-    }
-
-    // Check to see if the available layers match the requested layers.
-    for (uint32_t i = 0; i < layer_count; ++i) {
-        bool layer_found = false;
-        for (uint32_t j = 0; j < property_count; ++j) {
-            if (strcmp(layers[i], properties[j].layerName) == 0) {
-                layer_found = true;
-                break;
-            }
-        }
-        if (!layer_found) {
-            LOG_ERROR("%s: Validation layer not found: %s\n", __func__, layers[i]);
-            free(properties);
-            return VK_ERROR_LAYER_NOT_PRESENT;
-        }
-    }
-
-    free(properties);
-    return VK_SUCCESS;
-}
-
 int main(void) {
     /**
-     * Lease Allocator for sanely tracking memory allocations.
+     * @section Page Allocator to tack memory allocations.
+     * @{
      */
 
-    LeaseOwner* vk_alloc_owner = lease_create_owner(1024); // memory region tracker
-    VkAllocationCallbacks vk_alloc = vk_lease_callbacks(vk_alloc_owner); // attach and set tracker
+    PageAllocator* pager = page_allocator_create(1024);
+    VkAllocationCallbacks vk_alloc = vkc_page_callbacks(pager);
 
-    // Result codes and handles
-    VkResult result;
+    /** @} */
 
     /**
-     * Create a Vulkan Instance
+     * @section Global result variable
+     * @{
+     */
+
+    VkResult result; // Result codes and handles
+
+    /** @} */
+
+    /**
+     * @section Get the instance layer properties
+     * @{
+     */
+
+    uint32_t vkInstanceLayerPropertyCount = 0;
+    result = vkEnumerateInstanceLayerProperties(vkInstanceLayerPropertyCount, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer properties.");
+        goto cleanup_pager;
+    }
+
+    VkLayerProperties* vkInstanceLayerProperties = page_malloc(
+        pager,
+        vkInstanceLayerPropertyCount * sizeof(VkLayerProperties),
+        alignof(VkLayerProperties)
+    );
+    if (NULL == vkInstanceLayerProperties) {
+        LOG_ERROR(
+            "[VkLayerProperties] Failed to allocate %zu instance property objects.", 
+            vkInstanceLayerPropertyCount
+        );
+        goto cleanup_pager;
+    }
+    memset(vkInstanceLayerProperties, 0, vkInstanceLayerPropertyCount);
+
+    result = vkEnumerateInstanceLayerProperties(
+        vkInstanceLayerPropertyCount, vkInstanceLayerProperties
+    );
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer properties.");
+        goto cleanup_pager;
+    }
+
+    LOG_INFO("[VkLayerProperties] Found %zu instance layer properties.");
+    for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
+        LOG_INFO("[VkLayerProperties] i=%zu, name=%s, description=%s", i, vkInstanceLayerProperties[i].layerName, vkInstanceLayerProperties[i].description);
+    }
+
+    /** @} */
+
+    /**
+     * Get the extension layer properties
+     */
+
+    /**
+     * @section Create a Vulkan Instance
+     * @{
      */
 
     VkInstance instance = vk_create_instance(&vk_alloc);
     if (instance == VK_NULL_HANDLE) {
         goto cleanup_lease;
     }
+
+    /** @} */
 
     /**
      * Create a Vulkan Physical Device
@@ -352,14 +311,15 @@ int main(void) {
     /**
      * Clean up
      */
+
 cleanup_shader:
     vkDestroyShaderModule(device, shader_module, NULL);
 cleanup_device:
     vkDestroyDevice(device, NULL);
 cleanup_instance:
     vkDestroyInstance(instance, NULL);
-cleanup_lease:
-    lease_free_owner(vk_alloc_owner);
+cleanup_pager:
+    page_allocator_free(pager);
 
     LOG_INFO("Vulkan application destroyed.");
     return EXIT_SUCCESS;
