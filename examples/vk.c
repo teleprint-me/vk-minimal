@@ -26,7 +26,7 @@ int main(void) {
      */
 
     PageAllocator* pager = page_allocator_create(1024);
-    VkAllocationCallbacks vk_alloc = vkc_page_callbacks(pager);
+    VkAllocationCallbacks vkAllocationCallback = vkc_page_callbacks(pager);
 
     /** @} */
 
@@ -45,10 +45,11 @@ int main(void) {
      */
 
     uint32_t vkInstanceLayerPropertyCount = 0;
-    result = vkEnumerateInstanceLayerProperties(vkInstanceLayerPropertyCount, NULL);
+    result = vkEnumerateInstanceLayerProperties(&vkInstanceLayerPropertyCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer property count.");
-        goto cleanup_pager;
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
 
     VkLayerProperties* vkInstanceLayerProperties = page_malloc(
@@ -58,19 +59,21 @@ int main(void) {
     );
     if (NULL == vkInstanceLayerProperties) {
         LOG_ERROR(
-            "[VkLayerProperties] Failed to allocate %zu instance layer property objects.", 
+            "[VkLayerProperties] Failed to allocate %u instance layer property objects.", 
             vkInstanceLayerPropertyCount
         );
-        goto cleanup_pager;
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
-    memset(vkInstanceLayerProperties, 0, vkInstanceLayerPropertyCount);
+    memset(vkInstanceLayerProperties, 0, vkInstanceLayerPropertyCount * sizeof(VkLayerProperties));
 
     result = vkEnumerateInstanceLayerProperties(
-        vkInstanceLayerPropertyCount, vkInstanceLayerProperties
+        &vkInstanceLayerPropertyCount, vkInstanceLayerProperties
     );
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkLayerProperties] Failed to enumerate instance layer properties.");
-        goto cleanup_pager;
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
 
     // Log the results to standard output
@@ -89,10 +92,11 @@ int main(void) {
      */
 
     uint32_t vkInstanceExtensionPropertyCount = 0;
-    result = vkEnumerateInstanceExtensionProperties(NULL, vkInstanceExtensionPropertyCount, NULL);
+    result = vkEnumerateInstanceExtensionProperties(NULL, &vkInstanceExtensionPropertyCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkExtensionProperties] Failed to enumerate instance extension property count.");
-        goto cleanup_pager;
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
 
     VkExtensionProperties* vkInstanceExtensionProperties = page_malloc(
@@ -101,14 +105,17 @@ int main(void) {
         alignof(VkExtensionProperties)
     );
     if (NULL == vkInstanceExtensionProperties) {
-        LOG_ERROR("[VkExtensionProperties] Failed to allocate %zu instance extension property objects.");
-        goto cleanup_pager;
+        LOG_ERROR("[VkExtensionProperties] Failed to allocate %u instance extension property objects.", vkInstanceExtensionPropertyCount);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
+    memset(vkInstanceExtensionProperties, 0, vkInstanceExtensionPropertyCount * sizeof(VkExtensionProperties));
 
-    result = vkEnumerateInstanceExtensionProperties(NULL, vkInstanceExtensionPropertyCount, vkInstanceExtensionProperties);
+    result = vkEnumerateInstanceExtensionProperties(NULL, &vkInstanceExtensionPropertyCount, vkInstanceExtensionProperties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkExtensionProperties] Failed to enumerate instance extension properties.");
-        goto cleanup_pager;
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
 
     // Log the results to standard output
@@ -126,9 +133,59 @@ int main(void) {
      * @{
      */
 
-    VkInstance instance = vk_create_instance(&vk_alloc);
-    if (instance == VK_NULL_HANDLE) {
-        goto cleanup_lease;
+    uint32_t vkInstanceAPIVersion;
+    if (VK_SUCCESS != vkEnumerateInstanceVersion(&vkInstanceAPIVersion)) {
+        LOG_ERROR("Failed to enumerate instance API version.");
+        return 0;
+    }
+    
+    VkApplicationInfo vkInstanceAppInfo = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "compute",
+        .applicationVersion = vkInstanceAPIVersion,
+        .pEngineName = "compute engine",
+        .engineVersion = vkInstanceAPIVersion,
+        .apiVersion = vkInstanceAPIVersion,
+    };
+
+    LOG_INFO("Application Name: %s", vkInstanceAppInfo.pApplicationName);
+    LOG_INFO(
+        "Application Version: %u.%u.%u",
+        VK_VERSION_MAJOR(vkInstanceAppInfo.applicationVersion),
+        VK_VERSION_MINOR(vkInstanceAppInfo.applicationVersion),
+        VK_VERSION_PATCH(vkInstanceAppInfo.applicationVersion)
+    );
+    LOG_INFO("Engine Name: %s", vkInstanceAppInfo.pEngineName);
+    LOG_INFO(
+        "Engine Version: %u.%u.%u",
+        VK_VERSION_MAJOR(vkInstanceAppInfo.engineVersion),
+        VK_VERSION_MINOR(vkInstanceAppInfo.engineVersion),
+        VK_VERSION_PATCH(vkInstanceAppInfo.engineVersion)
+    );
+    LOG_INFO(
+        "API Version: %u.%u.%u",
+        VK_API_VERSION_MAJOR(vkInstanceAppInfo.apiVersion),
+        VK_API_VERSION_MINOR(vkInstanceAppInfo.apiVersion),
+        VK_API_VERSION_PATCH(vkInstanceAppInfo.apiVersion)
+    );
+
+    VkInstanceCreateInfo vkInstanceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &vkInstanceAppInfo,
+        .enabledLayerCount = vkInstanceLayerPropertyCount,
+        .ppEnabledLayerNames = NULL, /// @todo Create an array of available layer names
+        .enabledExtensionCount = vkInstanceExtensionPropertyCount,
+        .ppEnabledExtensionNames = NULL, /// @todo Create an array of available extension names
+    };
+
+    /// @todo free all instance properties
+    // page_free() // always free unused resources
+
+    VkInstance vkInstance = VK_NULL_HANDLE;
+    result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, vkInstance);
+    if (vkInstance == VK_NULL_HANDLE) {
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
     }
 
     /** @} */
@@ -349,13 +406,9 @@ int main(void) {
      * Clean up
      */
 
-cleanup_shader:
     vkDestroyShaderModule(device, shader_module, NULL);
-cleanup_device:
     vkDestroyDevice(device, NULL);
-cleanup_instance:
     vkDestroyInstance(instance, NULL);
-cleanup_pager:
     page_allocator_free(pager);
 
     LOG_INFO("Vulkan application destroyed.");
