@@ -13,23 +13,6 @@
  * {@
  */
 
-const char* vkc_scope_str(VkSystemAllocationScope scope) {
-    switch (scope) {
-        case VK_SYSTEM_ALLOCATION_SCOPE_COMMAND:
-            return "COMMAND";
-        case VK_SYSTEM_ALLOCATION_SCOPE_OBJECT:
-            return "OBJECT";
-        case VK_SYSTEM_ALLOCATION_SCOPE_CACHE:
-            return "CACHE";
-        case VK_SYSTEM_ALLOCATION_SCOPE_DEVICE:
-            return "DEVICE";
-        case VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE:
-            return "INSTANCE";
-        default:
-            return "UNKNOWN";
-    }
-}
-
 void* VKAPI_CALL
 vkc_malloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope scope) {
     (void) scope;
