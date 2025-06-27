@@ -73,9 +73,9 @@ int main(void) {
     }
 
     // Log the results to standard output
-    LOG_INFO("[VkLayerProperties] Found %zu instance layer properties.");
+    LOG_INFO("[VkLayerProperties] Found %u instance layer properties.", vkInstanceLayerPropertyCount);
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
-        LOG_INFO("[VkLayerProperties] i=%zu, name=%s, description=%s", 
+        LOG_INFO("[VkLayerProperties] i=%u, name=%s, description=%s", 
             i, vkInstanceLayerProperties[i].layerName, vkInstanceLayerProperties[i].description
         );
     }
@@ -206,7 +206,7 @@ int main(void) {
 
     VkInstance vkInstance = VK_NULL_HANDLE;
     result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
-    if (VK_SUCCESS == result) {
+    if (VK_SUCCESS != result) {
         LOG_ERROR("[VkInstance] Failed to create instance object.");
         page_allocator_free(pager);
         return EXIT_FAILURE;
@@ -438,7 +438,8 @@ int main(void) {
 
     vkDestroyShaderModule(device, shader_module, NULL);
     vkDestroyDevice(device, NULL);
-    vkDestroyInstance(instance, NULL);
+
+    vkDestroyInstance(vkInstance, &vkAllocationCallback);
     page_allocator_free(pager);
 
     LOG_INFO("Vulkan application destroyed.");
