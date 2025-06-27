@@ -144,10 +144,20 @@ int main(void) {
 
     bool vkInstanceExtensionPropertyFound = true;
     for (uint32_t i = 0; i < vkInstanceExtensionPropertyNameCount; i++) {
+        bool found = false;
         for (uint32_t j = 0; j < vkInstanceExtensionPropertyCount; j++) {
-            if (0 == utf8_raw_compare(vkInstanceExtensionPropertyNames[i], vkInstanceExtensionProperties[j].extensionName)) {
+            if (0 == utf8_raw_compare(
+                vkInstanceExtensionPropertyNames[i],
+                vkInstanceExtensionProperties[j].extensionName)) {
+                found = true;
                 LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
+                break;
             }
+        }
+
+        if (!found) {
+            LOG_WARN("[VkCreateInfo] Extension not available: %s", vkInstanceExtensionPropertyNames[i]);
+            vkInstanceExtensionPropertyFound = false;
         }
     }
 
@@ -206,6 +216,11 @@ int main(void) {
         vkInstanceCreateInfo.ppEnabledLayerNames = vkInstanceLayerPropertyNames;
     }
 
+    if (vkInstanceExtensionPropertyFound) {
+        vkInstanceCreateInfo.enabledExtensionCount = vkInstanceExtensionPropertyNameCount;
+        vkInstanceCreateInfo.ppEnabledExtensionNames = vkInstanceExtensionPropertyNames;
+    }
+
     VkInstance vkInstance = VK_NULL_HANDLE;
     result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
     if (VK_SUCCESS != result) {
@@ -216,7 +231,6 @@ int main(void) {
 
     // Free all instance properties
     page_free(pager, vkInstanceLayerProperties);
-    page_free(pager, vkInstanceExtensionPropertyNames);
     page_free(pager, vkInstanceExtensionProperties);
 
     /** @} */
