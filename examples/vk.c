@@ -438,8 +438,8 @@ int main(void) {
      * Clean up
      */
 
-    vkDestroyShaderModule(device, shader_module, NULL);
-    vkDestroyDevice(device, NULL);
+    // vkDestroyShaderModule(device, shader_module, NULL);
+    // vkDestroyDevice(device, NULL);
 
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
     page_allocator_free(pager);
