@@ -236,47 +236,63 @@ int main(void) {
     /** @} */
 
     /**
-     * Create a Vulkan Physical Device
-     *
-     * @note
-     * We can not allocate array memory to the stack because
-     * goto disrupts the control flow.
+     * @name Enumerate Physical Device List
+     * @{
      */
 
-    // uint32_t physical_device_count = 0;
-    // VkPhysicalDevice* physical_device_list = NULL;
-    // VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
-    // VkPhysicalDeviceProperties selected_properties = {0};
     // uint32_t compute_queue_family_index = UINT32_MAX;
 
-    // result = vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
-    // if (result != VK_SUCCESS || physical_device_count == 0) {
-    //     LOG_ERROR(
-    //         "No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
-    //         result,
-    //         physical_device_count
-    //     );
-    //     goto cleanup_instance;
-    // }
+    uint32_t vkPhysicalDeviceCount = 0;
+    result = vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, NULL);
+    if (VK_SUCCESS != result || 0 == vkPhysicalDeviceCount) {
+        LOG_ERROR(
+            "[VkPhysicalDevice] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
+            result,
+            vkPhysicalDeviceCount
+        );
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
-    // physical_device_list = lease_alloc_owned_address(
-    //     vk_alloc_owner,
-    //     sizeof(VkPhysicalDevice) * physical_device_count,
-    //     alignof(VkPhysicalDevice)
-    // );
-    // if (!physical_device_list) {
-    //     LOG_ERROR("Failed to allocate device list.");
-    //     goto cleanup_instance;
-    // }
+    VkPhysicalDevice* vkPhysicalDeviceList = page_malloc(
+        pager,
+        sizeof(VkPhysicalDevice) * vkPhysicalDeviceCount,
+        alignof(VkPhysicalDevice)
+    );
+    if (NULL == vkPhysicalDeviceList) {
+        LOG_ERROR("[VkPhysicalDevice] Failed to allocate device list.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
-    // result = vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_device_list);
-    // if (result != VK_SUCCESS) {
-    //     LOG_ERROR("Failed to enumerate devices (VkResult: %d)", result);
-    //     goto cleanup_instance;
-    // }
+    result = vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, vkPhysicalDeviceList);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkPhysicalDevice] Failed to enumerate devices (VkResult: %d)", result);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
-    // // Try to find the first discrete GPU with compute support
-    // for (uint32_t i = 0; i < physical_device_count; ++i) {
+    for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
+        VkPhysicalDevice device = vkPhysicalDeviceList[i];
+        VkPhysicalDeviceProperties properties = {0};
+        vkGetPhysicalDeviceProperties(device, &properties);    
+        LOG_INFO("[VkPhysicalDevice] i=%u, name=%s, type=%d", 
+            i, properties.deviceName, (int) properties.deviceType
+        );
+    }
+
+    /** @} */
+
+    /**
+     * @name Select Compute Capable Physical Device
+     */
+
+    // VkPhysicalDeviceProperties selected_properties = {0};
+    // VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
+    // for (uint32_t i = 0; i < vkPhysicalDeviceCount; ++i) {
     //     VkPhysicalDevice device = physical_device_list[i];
     //     VkPhysicalDeviceProperties props = {0};
     //     vkGetPhysicalDeviceProperties(device, &props);
@@ -311,7 +327,7 @@ int main(void) {
 
     // // Fallback: if no discrete GPU with compute, pick *any* device with compute support
     // if (selected_physical_device == VK_NULL_HANDLE) {
-    //     for (uint32_t i = 0; i < physical_device_count; ++i) {
+    //     for (uint32_t i = 0; i < vkPhysicalDeviceCount; ++i) {
     //         VkPhysicalDevice device = physical_device_list[i];
     //         VkPhysicalDeviceProperties props = {0};
     //         vkGetPhysicalDeviceProperties(device, &props);
