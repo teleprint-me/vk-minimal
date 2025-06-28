@@ -55,6 +55,9 @@
     "chrono": "c",
     "functional": "c",
     "cstdlib": "c",
-    "*.inc": "c"
+    "*.inc": "c",
+    "text_encoding": "c",
+    "typeindex": "c",
+    "typeinfo": "c"
   }
 }
