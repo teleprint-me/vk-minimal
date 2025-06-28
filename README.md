@@ -1,6 +1,6 @@
 # VkMinimal
 
-A minimal headless compute pipeline using Vulkan in C.
+A headless compute pipeline using Vulkan in C.
 
 ## Overview
 
