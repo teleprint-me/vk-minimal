@@ -331,10 +331,16 @@ int main(void) {
         page_free(pager, queue_families);
         if (VK_NULL_HANDLE != vkPhysicalDevice) {
             LOG_INFO(
-                "[VkPhysicalDevice] Selected device: %s (type=%d), compute queue index: %u",
+                "[VkPhysicalDevice] Selected name=%s, type=%d, queue=%u, api=%u.%u.%u, driver=%u.%u.%u",
                 properties.deviceName,
                 properties.deviceType,
-                vkQueueFamilyIndex
+                vkQueueFamilyIndex,
+                VK_VERSION_MAJOR(properties.apiVersion),
+                VK_VERSION_MINOR(properties.apiVersion),
+                VK_VERSION_PATCH(properties.apiVersion),
+                VK_VERSION_MAJOR(properties.driverVersion),
+                VK_VERSION_MINOR(properties.driverVersion),
+                VK_VERSION_PATCH(properties.driverVersion)
             );
             break;
         }
@@ -383,10 +389,16 @@ int main(void) {
             page_free(pager, queue_families);
             if (VK_NULL_HANDLE != vkPhysicalDevice) {
                 LOG_INFO(
-                    "[VkPhysicalDevice] Selected device: %s (type=%d), compute queue index: %u",
+                    "[VkPhysicalDevice] Selected name=%s, type=%d, queue=%u, api=%u.%u.%u, driver=%u.%u.%u",
                     properties.deviceName,
                     properties.deviceType,
-                    vkQueueFamilyIndex
+                    vkQueueFamilyIndex,
+                    VK_VERSION_MAJOR(properties.apiVersion),
+                    VK_VERSION_MINOR(properties.apiVersion),
+                    VK_VERSION_PATCH(properties.apiVersion),
+                    VK_VERSION_MAJOR(properties.driverVersion),
+                    VK_VERSION_MINOR(properties.driverVersion),
+                    VK_VERSION_PATCH(properties.driverVersion)
                 );
                 break;
             }
@@ -394,7 +406,7 @@ int main(void) {
     }
 
     if (VK_NULL_HANDLE == vkPhysicalDevice) {
-        LOG_ERROR("[VkPhysicalDevice] No suitable device with compute queue found.");
+        LOG_ERROR("[VkPhysicalDevice] No suitable compute device found.");
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
         return EXIT_FAILURE;
