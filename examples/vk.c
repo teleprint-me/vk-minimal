@@ -308,6 +308,7 @@ int main(void) {
             queue_family_count * sizeof(VkQueueFamilyProperties),
             alignof(VkQueueFamilyProperties)
         );
+
         if (NULL == queue_families) {
             LOG_ERROR("[VkPhysicalDevice] Failed to allocate queue families.");
             vkDestroyInstance(vkInstance, &vkAllocationCallback);
@@ -331,60 +332,85 @@ int main(void) {
         // Free dead weight
         page_free(pager, queue_families);
         if (VK_NULL_HANDLE != vkPhysicalDevice) {
-            LOG_INFO("[VkPhysicalDevice] Selected device: %s", properties.deviceName);
+            LOG_INFO(
+                "[VkPhysicalDevice] Selected device: %s (type=%d), compute queue index: %u",
+                properties.deviceName,
+                properties.deviceType,
+                vkQueueFamilyIndex
+            );
             break;
         }
     }
 
-    (void) vkQueueFamilyIndex;
+    /** @} */
+
+    /**
+     * @name Select Fallback Compute Device
+     * @{
+     */
+
+    if (VK_NULL_HANDLE == vkPhysicalDevice) {
+        for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
+            VkPhysicalDevice device = vkPhysicalDeviceList[i];
+            VkPhysicalDeviceProperties properties = {0};
+            vkGetPhysicalDeviceProperties(device, &properties);
+
+            uint32_t queue_family_count = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
+
+            VkQueueFamilyProperties* queue_families = page_malloc(
+                pager,
+                queue_family_count * sizeof(VkQueueFamilyProperties),
+                alignof(VkQueueFamilyProperties)
+            );
+
+            if (NULL == queue_families) {
+                LOG_ERROR("[VkPhysicalDevice] Failed to allocate queue families.");
+                vkDestroyInstance(vkInstance, &vkAllocationCallback);
+                page_allocator_free(pager);
+                return EXIT_FAILURE;
+            }
+
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
+
+            for (uint32_t j = 0; j < queue_family_count; j++) {
+                if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    vkPhysicalDevice = device;
+                    vkPhysicalDeviceProperties = properties;
+                    vkQueueFamilyIndex = j;
+                    break;
+                }
+            }
+
+            // Free dead weight
+            page_free(pager, queue_families);
+            if (VK_NULL_HANDLE != vkPhysicalDevice) {
+                LOG_INFO(
+                    "[VkPhysicalDevice] Selected device: %s (type=%d), compute queue index: %u",
+                    properties.deviceName,
+                    properties.deviceType,
+                    vkQueueFamilyIndex
+                );
+                break;
+            }
+        }
+    }
+
+    if (VK_NULL_HANDLE == vkPhysicalDevice) {
+        LOG_ERROR("[VkPhysicalDevice] No suitable device with compute queue found.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
     (void) vkPhysicalDeviceProperties;
 
-    // // Fallback: if no discrete GPU with compute, pick *any* device with compute support
-    // if (selected_physical_device == VK_NULL_HANDLE) {
-    //     for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
-    //         VkPhysicalDevice device = physical_device_list[i];
-    //         VkPhysicalDeviceProperties props = {0};
-    //         vkGetPhysicalDeviceProperties(device, &props);
+    /** @} */
 
-    //         uint32_t queue_family_count = 0;
-    //         vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
-
-    //         VkQueueFamilyProperties* queue_families = lease_alloc_owned_address(
-    //             vk_alloc_owner,
-    //             sizeof(VkQueueFamilyProperties) * queue_family_count,
-    //             alignof(VkQueueFamilyProperties)
-    //         );
-    //         vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
-
-    //         for (uint32_t j = 0; j < queue_family_count; j++) {
-    //             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-    //                 selected_physical_device = device;
-    //                 selected_properties = props;
-    //                 compute_queue_family_index = j;
-    //                 break;
-    //             }
-    //         }
-    //         if (selected_physical_device != VK_NULL_HANDLE) {
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // if (selected_physical_device == VK_NULL_HANDLE) {
-    //     LOG_ERROR("No suitable device with compute queue found.");
-    //     goto cleanup_instance;
-    // }
-
-    // LOG_INFO(
-    //     "Selected device: %s (type=%d), compute queue index: %u",
-    //     selected_properties.deviceName,
-    //     selected_properties.deviceType,
-    //     compute_queue_family_index
-    // );
-
-    // /**
-    //  * Create a Vulkan Logical Device
-    //  */
+    /**
+     * @name Create Logical Device
+     * @{
+     */
 
     // static const float queue_priorities[1] = {1.0f};
     // VkDeviceQueueCreateInfo queue_info = {0};
