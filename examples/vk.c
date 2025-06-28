@@ -293,7 +293,6 @@ int main(void) {
      */
 
     uint32_t vkQueueFamilyIndex = UINT32_MAX;
-    VkPhysicalDeviceProperties vkPhysicalDeviceProperties = {0};
     VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
     for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
         VkPhysicalDevice device = vkPhysicalDeviceList[i];
@@ -322,7 +321,6 @@ int main(void) {
             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
                 if (VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU == properties.deviceType) {
                     vkPhysicalDevice = device;
-                    vkPhysicalDeviceProperties = properties;
                     vkQueueFamilyIndex = j;
                     break;
                 }
@@ -376,7 +374,6 @@ int main(void) {
             for (uint32_t j = 0; j < queue_family_count; j++) {
                 if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
                     vkPhysicalDevice = device;
-                    vkPhysicalDeviceProperties = properties;
                     vkQueueFamilyIndex = j;
                     break;
                 }
@@ -508,7 +505,6 @@ int main(void) {
         LOG_INFO("[VkExtensionProperties] i=%u, name=%s", i, vkDeviceExtensionProperties[i].extensionName);
     }
 
-    (void) vkPhysicalDeviceProperties;
     (void) vkDeviceLayerPropertyFound;
 
     /** @} */
