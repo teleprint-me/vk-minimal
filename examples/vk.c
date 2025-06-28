@@ -478,7 +478,6 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-
     VkExtensionProperties* vkDeviceExtensionProperties = page_malloc(
         pager,
         vkDeviceExtensionCount * sizeof(VkExtensionProperties),
@@ -505,47 +504,58 @@ int main(void) {
         LOG_INFO("[VkExtensionProperties] i=%u, name=%s", i, vkDeviceExtensionProperties[i].extensionName);
     }
 
-    (void) vkDeviceLayerPropertyFound;
-
     /** @} */
 
     /**
-     * @name Create Logical Device
+     * @name Physical Device Features
+     */
+
+    /// @todo Look into physical device features
+    /// @ref https://docs.vulkan.org/guide/latest/enabling_features.html
+    VkPhysicalDeviceFeatures features = {0};
+    vkGetPhysicalDeviceFeatures(vkPhysicalDevice, &features);
+
+    /**
+     * @name Logical Device
      * @{
      */
 
-    // static const float queue_priorities[1] = {1.0f};
-    // VkDeviceQueueCreateInfo queue_info = {0};
-    // VkPhysicalDeviceFeatures features = {0};
+    // The compute queue family we want access to.
+    static const float vkDeviceQueuePriorities[1] = {1.0f};
+    VkDeviceQueueCreateInfo vkDeviceQueueCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = vkQueueFamilyIndex,
+        .queueCount = 1,
+        .pQueuePriorities = vkDeviceQueuePriorities,
+    };
 
-    // VkDeviceCreateInfo device_info = {
-    //     .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-    //     .pNext = NULL,
-    //     .queueCreateInfoCount = 1,
-    //     .pQueueCreateInfos = &queue_info,
-    //     .enabledExtensionCount = 0,
-    //     .ppEnabledExtensionNames = NULL,
-    //     .enabledLayerCount = 0,
-    //     .ppEnabledLayerNames = NULL,
-    //     .pEnabledFeatures = &features, // or see note below
-    // };
+    VkDeviceCreateInfo vkDeviceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = NULL,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &vkDeviceQueueCreateInfo,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
+        .pEnabledFeatures = &features,
+    };
 
-    // VkDevice device = VK_NULL_HANDLE;
+    if (vkDeviceLayerPropertyFound) {
+        vkDeviceCreateInfo.enabledLayerCount = vkDeviceLayerPropertyCount;
+        vkDeviceCreateInfo.ppEnabledLayerNames = vkDeviceLayerPropertyNames;
+    }
+
+    VkDevice vkDevice = VK_NULL_HANDLE;
+    result = vkCreateDevice(vkPhysicalDevice, &vkDeviceCreateInfo, &vkAllocationCallback, &vkDevice);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("Failed to create logical device: %d", result);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("Logical device created.");
+
     // VkQueue compute_queue = VK_NULL_HANDLE;
-
-    // // The compute queue family we want access to.
-    // queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    // queue_info.queueFamilyIndex = compute_queue_family_index;
-    // queue_info.queueCount = 1;
-    // queue_info.pQueuePriorities = queue_priorities;
-
-    // result = vkCreateDevice(selected_physical_device, &device_info, NULL, &device);
-    // if (result != VK_SUCCESS) {
-    //     LOG_ERROR("Failed to create logical device: %d", result);
-    //     goto cleanup_instance;
-    // }
-    // LOG_INFO("Logical device created.");
-
     // vkGetDeviceQueue(device, compute_queue_family_index, 0, &compute_queue);
     // LOG_INFO("Retrieved compute queue.");
 
@@ -612,6 +622,7 @@ int main(void) {
     // vkDestroyShaderModule(device, shader_module, NULL);
     // vkDestroyDevice(device, NULL);
 
+    vkDestroyDevice(vkDevice, &vkAllocationCallback);
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
     page_allocator_free(pager);
 
