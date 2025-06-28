@@ -408,6 +408,58 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Enumerate Device Layers
+     * @{
+     */
+
+    uint32_t vkDeviceLayerPropertyCount = 0;
+    result = vkEnumerateDeviceLayerProperties(vkPhysicalDevice, &vkDeviceLayerPropertyCount, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkPhysicalDevice] Failed to enumerate device layer property count.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    VkLayerProperties* vkDeviceLayerProperties = page_malloc(
+        pager,
+        vkDeviceLayerPropertyCount * sizeof(VkLayerProperties),
+        alignof(VkLayerProperties) 
+    );
+
+    if (NULL == vkDeviceLayerProperties) {
+        LOG_ERROR("[VkPhysicalDevice] Failed to allocate device layer properties.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    result = vkEnumerateDeviceLayerProperties(vkPhysicalDevice, &vkDeviceLayerPropertyCount, vkDeviceLayerProperties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkPhysicalDevice] Failed to enumerate device layer properties.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    // Log the results to standard output
+    LOG_INFO("[VkLayerProperties] Found %u device layer properties.", vkDeviceLayerPropertyCount);
+    for (uint32_t i = 0; i < vkDeviceLayerPropertyCount; i++) {
+        LOG_INFO("[VkLayerProperties] i=%u, name=%s, description=%s", 
+            i, vkDeviceLayerProperties[i].layerName, vkDeviceLayerProperties[i].description
+        );
+    }
+
+    /** @} */
+
+    /**
+     * @name Enumerate Device Extensions
+     * @{
+     */
+
+    /** @} */
+
+    /**
      * @name Create Logical Device
      * @{
      */
