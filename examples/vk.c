@@ -183,22 +183,22 @@ int main(void) {
         .apiVersion = vkInstanceAPIVersion,
     };
 
-    LOG_INFO("Application Name: %s", vkInstanceAppInfo.pApplicationName);
+    LOG_INFO("[VkApplicationInfo] Name: %s", vkInstanceAppInfo.pApplicationName);
     LOG_INFO(
-        "Application Version: %u.%u.%u",
+        "[VkApplicationInfo] Version: %u.%u.%u",
         VK_VERSION_MAJOR(vkInstanceAppInfo.applicationVersion),
         VK_VERSION_MINOR(vkInstanceAppInfo.applicationVersion),
         VK_VERSION_PATCH(vkInstanceAppInfo.applicationVersion)
     );
-    LOG_INFO("Engine Name: %s", vkInstanceAppInfo.pEngineName);
+    LOG_INFO("[VkApplicationInfo] Engine Name: %s", vkInstanceAppInfo.pEngineName);
     LOG_INFO(
-        "Engine Version: %u.%u.%u",
+        "[VkApplicationInfo] Engine Version: %u.%u.%u",
         VK_VERSION_MAJOR(vkInstanceAppInfo.engineVersion),
         VK_VERSION_MINOR(vkInstanceAppInfo.engineVersion),
         VK_VERSION_PATCH(vkInstanceAppInfo.engineVersion)
     );
     LOG_INFO(
-        "API Version: %u.%u.%u",
+        "[VkApplicationInfo] API Version: %u.%u.%u",
         VK_API_VERSION_MAJOR(vkInstanceAppInfo.apiVersion),
         VK_API_VERSION_MINOR(vkInstanceAppInfo.apiVersion),
         VK_API_VERSION_PATCH(vkInstanceAppInfo.apiVersion)
@@ -229,7 +229,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Free all instance properties
+    // Free dead weight
     page_free(pager, vkInstanceLayerProperties);
     page_free(pager, vkInstanceExtensionProperties);
 
@@ -240,7 +240,8 @@ int main(void) {
      * @{
      */
 
-    // uint32_t compute_queue_family_index = UINT32_MAX;
+    /// @todo Look into VK_KHR_device_group and vkEnumeratePhysicalDeviceGroups
+    /// @note Multi-GPU support is postponed until single device support is stable.
 
     uint32_t vkPhysicalDeviceCount = 0;
     result = vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, NULL);
@@ -257,7 +258,7 @@ int main(void) {
 
     VkPhysicalDevice* vkPhysicalDeviceList = page_malloc(
         pager,
-        sizeof(VkPhysicalDevice) * vkPhysicalDeviceCount,
+        vkPhysicalDeviceCount * sizeof(VkPhysicalDevice),
         alignof(VkPhysicalDevice)
     );
     if (NULL == vkPhysicalDeviceList) {
@@ -275,6 +276,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    // Log entire device list
     for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
         VkPhysicalDevice device = vkPhysicalDeviceList[i];
         VkPhysicalDeviceProperties properties = {0};
@@ -287,47 +289,59 @@ int main(void) {
     /** @} */
 
     /**
-     * @name Select Compute Capable Physical Device
+     * @name Select Compute Device
      */
 
-    // VkPhysicalDeviceProperties selected_properties = {0};
-    // VkPhysicalDevice selected_physical_device = VK_NULL_HANDLE;
-    // for (uint32_t i = 0; i < vkPhysicalDeviceCount; ++i) {
-    //     VkPhysicalDevice device = physical_device_list[i];
-    //     VkPhysicalDeviceProperties props = {0};
-    //     vkGetPhysicalDeviceProperties(device, &props);
+    uint32_t vkQueueFamilyIndex = UINT32_MAX;
+    VkPhysicalDeviceProperties vkPhysicalDeviceProperties = {0};
+    VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
+    for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
+        VkPhysicalDevice device = vkPhysicalDeviceList[i];
+        VkPhysicalDeviceProperties properties = {0};
+        vkGetPhysicalDeviceProperties(device, &properties);
 
-    //     uint32_t queue_family_count = 0;
-    //     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
+        uint32_t queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, NULL);
 
-    //     VkQueueFamilyProperties* queue_families = lease_alloc_owned_address(
-    //         vk_alloc_owner,
-    //         sizeof(VkQueueFamilyProperties) * queue_family_count,
-    //         alignof(VkQueueFamilyProperties)
-    //     );
-    //     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
+        VkQueueFamilyProperties* queue_families = page_malloc(
+            pager,
+            queue_family_count * sizeof(VkQueueFamilyProperties),
+            alignof(VkQueueFamilyProperties)
+        );
+        if (NULL == queue_families) {
+            LOG_ERROR("[VkPhysicalDevice] Failed to allocate queue families.");
+            vkDestroyInstance(vkInstance, &vkAllocationCallback);
+            page_allocator_free(pager);
+            return EXIT_FAILURE;
+        }
 
-    //     LOG_INFO("Device %u: %s, type=%d", i, props.deviceName, props.deviceType);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
-    //     for (uint32_t j = 0; j < queue_family_count; ++j) {
-    //         if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-    //             if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-    //                 && selected_physical_device == VK_NULL_HANDLE) {
-    //                 selected_physical_device = device;
-    //                 selected_properties = props;
-    //                 compute_queue_family_index = j;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //     if (selected_physical_device != VK_NULL_HANDLE) {
-    //         break;
-    //     }
-    // }
+        for (uint32_t j = 0; j < queue_family_count; j++) {
+            if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                if (VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU == properties.deviceType) {
+                    vkPhysicalDevice = device;
+                    vkPhysicalDeviceProperties = properties;
+                    vkQueueFamilyIndex = j;
+                    break;
+                }
+            }
+        }
+
+        // Free dead weight
+        page_free(pager, queue_families);
+        if (VK_NULL_HANDLE != vkPhysicalDevice) {
+            LOG_INFO("[VkPhysicalDevice] Selected device: %s", properties.deviceName);
+            break;
+        }
+    }
+
+    (void) vkQueueFamilyIndex;
+    (void) vkPhysicalDeviceProperties;
 
     // // Fallback: if no discrete GPU with compute, pick *any* device with compute support
     // if (selected_physical_device == VK_NULL_HANDLE) {
-    //     for (uint32_t i = 0; i < vkPhysicalDeviceCount; ++i) {
+    //     for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
     //         VkPhysicalDevice device = physical_device_list[i];
     //         VkPhysicalDeviceProperties props = {0};
     //         vkGetPhysicalDeviceProperties(device, &props);
@@ -342,7 +356,7 @@ int main(void) {
     //         );
     //         vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
-    //         for (uint32_t j = 0; j < queue_family_count; ++j) {
+    //         for (uint32_t j = 0; j < queue_family_count; j++) {
     //             if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
     //                 selected_physical_device = device;
     //                 selected_properties = props;
