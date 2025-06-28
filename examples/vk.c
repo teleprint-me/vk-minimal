@@ -583,8 +583,16 @@ int main(void) {
     };
 
     vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
-    // Check whether atomic float32 add is supported
-    LOG_INFO("shaderBufferFloat32AtomicAdd = %d", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd);
+
+    if (deviceShaderAtomicFloat.shaderBufferFloat32Atomics) {
+        LOG_INFO("[VkPhysicalDeviceFeatures2] shaderBufferFloat32Atomics = %s", deviceShaderAtomicFloat.shaderBufferFloat32Atomics ? "true" : "false");
+        LOG_INFO("[VkPhysicalDeviceFeatures2] shaderBufferFloat32AtomicAdd = %s", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd ? "true" : "false");
+    } else {
+        LOG_ERROR("[VkPhysialDeviceFeatures2] Atomicity is unsupported for the selected GPU.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
     /**
      * @name Logical Device
