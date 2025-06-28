@@ -1,5 +1,9 @@
 /**
  * @file examples/vk.c
+ * @ref https://vulkan-tutorial.com
+ * @ref https://docs.vulkan.org
+ * @ref https://vulkan.gpuinfo.org
+ * @ref https://registry.khronos.org/vulkan
  */
 
 #include "core/posix.h"
