@@ -567,8 +567,24 @@ int main(void) {
 
     /// @todo Look into physical device features
     /// @ref https://docs.vulkan.org/guide/latest/enabling_features.html
-    VkPhysicalDeviceFeatures features = {0};
-    vkGetPhysicalDeviceFeatures(vkPhysicalDevice, &features);
+
+    VkPhysicalDeviceShaderAtomicFloatFeaturesEXT deviceShaderAtomicFloat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
+    };
+
+    VkPhysicalDeviceVulkan12Features deviceVulkan12Features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .pNext = &deviceShaderAtomicFloat,
+    };
+
+    VkPhysicalDeviceFeatures2 deviceFeatures2 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &deviceVulkan12Features,
+    };
+
+    vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
+    // Check whether atomic float32 add is supported
+    LOG_INFO("shaderBufferFloat32AtomicAdd = %d", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd);
 
     /**
      * @name Logical Device
@@ -586,12 +602,10 @@ int main(void) {
 
     VkDeviceCreateInfo vkDeviceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = &deviceFeatures2,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &vkDeviceQueueCreateInfo,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
-        .pEnabledFeatures = &features,
+        .pEnabledFeatures = NULL, // overridden by pNext chain
     };
 
     if (vkDeviceLayerPropertyFound) {
