@@ -65,8 +65,8 @@ This project includes `dsa` as a submodule for data structures and algorithms.
 ### 1. Clone the repository
 
 ```sh
-git clone https://github.com/teleprint-me/vk-minimal
-cd vk-minimal
+git clone https://github.com/teleprint-me/vk.c vkc
+cd vkc
 ```
 
 ### 2. Initialize submodules
