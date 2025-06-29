@@ -11,7 +11,7 @@ A step-by-step overview for building a minimal headless Vulkan **compute pipelin
 
 ## 📦 Shader & Pipeline
 
-* [ ] **Shader Module**: Load your SPIR-V binary and create a `VkShaderModule`.
+* [x] **Shader Module**: Load your SPIR-V binary and create a `VkShaderModule`.
 * [ ] **Descriptor Set Layout**: Define resource bindings (e.g., buffers), then create `VkDescriptorSetLayout`.
 * [ ] **Pipeline Layout**: Create a `VkPipelineLayout` to combine descriptor sets and optional push constants.
 * [ ] **Compute Pipeline**: Create a `VkPipeline` (type `COMPUTE`) using your shader and layout.
