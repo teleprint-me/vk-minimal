@@ -21,6 +21,13 @@
 
 int main(void) {
     /**
+     * Debug Environment
+     * @{
+     */
+
+     /** @} */
+
+    /**
      * @name Page Allocator
      * @{
      */
@@ -645,9 +652,7 @@ int main(void) {
      * @{
      */
 
-    size_t shaderCodeSize = 0;
     const char* shaderFilePath = "build/shaders/mean.spv";
-
     FILE* shaderFile = fopen(shaderFilePath, "rb");
     if (!shaderFile) {
         LOG_ERROR("[ShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);
@@ -668,10 +673,10 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Track the buffer because Vulkan won't free this later on for us.
+    uint32_t shaderCodeSize = (uint32_t) shaderFilelength;
     uint32_t* shaderCode = (uint32_t*) page_malloc(
         pager,
-        (size_t) shaderFilelength + 1,
+        shaderCodeSize + 1,
         alignof(char)
     );
 
@@ -685,10 +690,10 @@ int main(void) {
     }
 
     // Assuming fread null terminates buffer for us
-    fread(shaderCode, 1, shaderFilelength, shaderFile);
+    fread(shaderCode, 1, shaderCodeSize, shaderFile);
     fclose(shaderFile);
 
-    LOG_INFO("[ShaderModule] file=%s, size=%u", shaderFilePath, shaderCodeSize);
+    LOG_INFO("[ShaderModule] Read SPIR-V shader: file=%s, size=%u", shaderFilePath, shaderCodeSize);
 
     /** @} */
 
