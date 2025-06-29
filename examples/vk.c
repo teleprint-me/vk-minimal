@@ -21,11 +21,18 @@
 
 int main(void) {
     /**
-     * Debug Environment
+     * @name Debug Environment
+     * @brief Enables verbose logging when VKC_DEBUG=1 is set.
      * @{
      */
 
-     /** @} */
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug mode.");
+#else
+    LOG_INFO("[VkCompute] Release mode.");
+#endif
+
+    /** @} */
 
     /**
      * @name Page Allocator
@@ -83,13 +90,15 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
     // Log the results to standard output
-    LOG_INFO("[InstanceLayerProperties] Found %u instance layer properties.", vkInstanceLayerPropertyCount);
+    LOG_DEBUG("[InstanceLayerProperties] Found %u instance layer properties.", vkInstanceLayerPropertyCount);
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
-        LOG_INFO("[InstanceLayerProperties] i=%u, name=%s, description=%s", 
+        LOG_DEBUG("[InstanceLayerProperties] i=%u, name=%s, description=%s", 
             i, vkInstanceLayerProperties[i].layerName, vkInstanceLayerProperties[i].description
         );
     }
+#endif
 
     bool vkInstanceLayerPropertyFound = false;
     char const* vkInstanceLayerPropertyNames[] = {"VK_LAYER_KHRONOS_validation"};
@@ -135,13 +144,15 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
     // Log the results to standard output
-    LOG_INFO("[InstanceExtensionProperties] Found %u instance extension properties.", vkInstanceExtensionPropertyCount);
+    LOG_DEBUG("[InstanceExtensionProperties] Found %u instance extension properties.", vkInstanceExtensionPropertyCount);
     for (uint32_t i = 0; i < vkInstanceExtensionPropertyCount; i++) {
-        LOG_INFO("[InstanceExtensionProperties] i=%u, name=%s, version=%u", 
+        LOG_DEBUG("[InstanceExtensionProperties] i=%u, name=%s, version=%u", 
             i, vkInstanceExtensionProperties[i].extensionName, vkInstanceExtensionProperties[i].specVersion
         );
     }
+#endif
 
     uint32_t vkInstanceExtensionPropertyNameCount = 6;
     char const* vkInstanceExtensionPropertyNames[] = {
@@ -287,15 +298,17 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // Log entire device list
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkPhysicalDevice] Found %u devices.", vkPhysicalDeviceCount);
     for (uint32_t i = 0; i < vkPhysicalDeviceCount; i++) {
         VkPhysicalDevice device = vkPhysicalDeviceList[i];
         VkPhysicalDeviceProperties properties = {0};
         vkGetPhysicalDeviceProperties(device, &properties);    
-        LOG_INFO("[VkPhysicalDevice] i=%u, name=%s, type=%d", 
+        LOG_DEBUG("[VkPhysicalDevice] i=%u, name=%s, type=%d", 
             i, properties.deviceName, (int) properties.deviceType
         );
     }
+#endif
 
     /** @} */
 
@@ -465,13 +478,15 @@ int main(void) {
             return EXIT_FAILURE;
         }
 
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
         // Log the results to standard output
-        LOG_INFO("[DeviceLayerProperties] Found %u device layer properties.", vkDeviceLayerPropertyCount);
+        LOG_DEBUG("[DeviceLayerProperties] Found %u device layer properties.", vkDeviceLayerPropertyCount);
         for (uint32_t i = 0; i < vkDeviceLayerPropertyCount; i++) {
-            LOG_INFO("[DeviceLayerProperties] i=%u, name=%s, description=%s", 
+            LOG_DEBUG("[DeviceLayerProperties] i=%u, name=%s, description=%s", 
                 i, vkDeviceLayerProperties[i].layerName, vkDeviceLayerProperties[i].description
             );
         }
+#endif
 
         for (uint32_t i = 0; i < vkDeviceLayerPropertyCount; i++) {
             if (0 == utf8_raw_compare(vkDeviceLayerProperties[i].layerName, vkDeviceLayerPropertyNames[0])) {
@@ -521,11 +536,13 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
     // Log supported extensions
-    LOG_INFO("[DeviceExtensionProperties] Found %u device extensions.", vkDeviceExtensionCount);
+    LOG_DEBUG("[DeviceExtensionProperties] Found %u device extensions.", vkDeviceExtensionCount);
     for (uint32_t i = 0; i < vkDeviceExtensionCount; i++) {
-        LOG_INFO("[DeviceExtensionProperties] i=%u, name=%s", i, vkDeviceExtensionProperties[i].extensionName);
+        LOG_DEBUG("[DeviceExtensionProperties] i=%u, name=%s", i, vkDeviceExtensionProperties[i].extensionName);
     }
+#endif
 
     uint32_t vkDeviceExtensionNameCount = 14;
     char const* vkDeviceExtensionNames[] = {

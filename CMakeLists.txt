@@ -23,10 +23,10 @@ set(DEBUG_FLAGS "-g3")
 # Apply flags conditionally based on build type
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_WARNING_FLAGS} ${DEBUG_SANITIZERS} ${DEBUG_EXTRA_WARNINGS} ${DEBUG_ANALYSIS} ${DEBUG_FLAGS}")
-    add_compile_definitions(-DDEBUG=1)
+    add_compile_definitions(-DVKC_DEBUG=1)
 else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_WARNING_FLAGS}")
-    add_compile_definitions(-DDEBUG=0)
+    add_compile_definitions(-DVKC_DEBUG=0)
 endif()
 
 # Enable Shared Libraries option
