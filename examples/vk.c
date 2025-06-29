@@ -679,7 +679,7 @@ int main(void) {
     const char* shaderFilePath = "build/shaders/mean.spv";
     FILE* shaderFile = fopen(shaderFilePath, "rb");
     if (NULL == shaderFile) {
-        LOG_ERROR("[ShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);
+        LOG_ERROR("[VkShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
@@ -690,7 +690,7 @@ int main(void) {
     long shaderFilelength = ftell(shaderFile);
     rewind(shaderFile);
     if (-1 == shaderFilelength) {
-        LOG_ERROR("[ShaderModule] Failed to inference SPIR-V file size: %s", shaderFilePath);
+        LOG_ERROR("[VkShaderModule] Failed to inference SPIR-V file size: %s", shaderFilePath);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
@@ -705,7 +705,7 @@ int main(void) {
     );
 
     if (NULL == shaderCode) {
-        LOG_ERROR("[ShaderModule] Failed to allocate %u bytes for SPIR-V shader", shaderCodeSize);
+        LOG_ERROR("[VkShaderModule] Failed to allocate %u bytes for SPIR-V shader", shaderCodeSize);
         fclose(shaderFile);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
@@ -717,7 +717,7 @@ int main(void) {
     fread(shaderCode, 1, shaderCodeSize, shaderFile);
     fclose(shaderFile);
 
-    LOG_INFO("[ShaderModule] Read SPIR-V shader: file=%s, size=%u", shaderFilePath, shaderCodeSize);
+    LOG_INFO("[VkShaderModule] Read SPIR-V shader: file=%s, size=%u", shaderFilePath, shaderCodeSize);
 
     /** @} */
 
@@ -735,14 +735,56 @@ int main(void) {
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
     result = vkCreateShaderModule(vkDevice, &vkShaderInfo, &vkAllocationCallback, &vkShaderModule);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("Failed to create shader module from %s (VkResult=%d)", shaderFilePath, result);
+        LOG_ERROR("[VkShaderModule] Failed to create shader module from %s (VkResult=%d)", shaderFilePath, result);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[ShaderModule] Created shader module @ %p", vkShaderModule);
+    LOG_INFO("[VkShaderModule] Created shader module @ %p", vkShaderModule);
+
+    /** @} */
+
+    /**
+     * @name Descriptor Set
+     * @{
+     */
+
+    VkDescriptorSetLayoutBinding bindings[2] = {
+        {
+            .binding = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = NULL,
+        },
+        {
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .pImmutableSamplers = NULL,
+        },
+    };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 2,
+        .pBindings = bindings,
+    };
+
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+    result = vkCreateDescriptorSetLayout(vkDevice, &layoutInfo, &vkAllocationCallback, &descriptorSetLayout);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkDescriptorSetLayout] Failed to create the descriptor set layout (VkResult=%d)", result);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p", descriptorSetLayout);
 
     /** @} */
 
@@ -750,6 +792,7 @@ int main(void) {
      * Clean up
      */
 
+    vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayout, &vkAllocationCallback);
     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
     vkDestroyDevice(vkDevice, &vkAllocationCallback);
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
