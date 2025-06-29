@@ -634,12 +634,11 @@ int main(void) {
         page_allocator_free(pager);
         return EXIT_FAILURE;
     }
-
     LOG_INFO("Logical device created.");
 
-    // VkQueue compute_queue = VK_NULL_HANDLE;
-    // vkGetDeviceQueue(device, compute_queue_family_index, 0, &compute_queue);
-    // LOG_INFO("Retrieved compute queue.");
+    VkQueue vkQueue = VK_NULL_HANDLE;
+    vkGetDeviceQueue(vkDevice, vkQueueFamilyIndex, 0, &vkQueue);
+    LOG_INFO("Retrieved compute queue.");
 
     // /**
     //  * Read SPIR-V Binary File
