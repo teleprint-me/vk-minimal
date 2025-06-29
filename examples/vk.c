@@ -629,48 +629,68 @@ int main(void) {
     VkDevice vkDevice = VK_NULL_HANDLE;
     result = vkCreateDevice(vkPhysicalDevice, &vkDeviceCreateInfo, &vkAllocationCallback, &vkDevice);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("Failed to create logical device: %d", result);
+        LOG_ERROR("[VkDevice] Failed to create logical device: %d", result);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
         return EXIT_FAILURE;
     }
-    LOG_INFO("Logical device created.");
+    LOG_INFO("[VkDevice] Logical device created.");
 
     VkQueue vkQueue = VK_NULL_HANDLE;
     vkGetDeviceQueue(vkDevice, vkQueueFamilyIndex, 0, &vkQueue);
-    LOG_INFO("Retrieved compute queue.");
+    LOG_INFO("[VkQueue] Retrieved compute queue.");
 
-    // /**
-    //  * Read SPIR-V Binary File
-    //  */
+    /**
+     * @name Read SPIR-V Binary File
+     * @{
+     */
 
-    // size_t code_size = 0;
-    // const char* filepath = "build/shaders/mean.spv";
+    size_t shaderCodeSize = 0;
+    const char* shaderFilePath = "build/shaders/mean.spv";
 
-    // FILE* file = fopen(filepath, "rb");
-    // if (!file) {
-    //     LOG_ERROR("Failed to open SPIR-V file: %s", filepath);
-    //     goto cleanup_device;
-    // }
+    FILE* shaderFile = fopen(shaderFilePath, "rb");
+    if (!shaderFile) {
+        LOG_ERROR("[ShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
-    // fseek(file, 0, SEEK_END);
-    // long length = ftell(file);
-    // rewind(file);
+    fseek(shaderFile, 0, SEEK_END);
+    long shaderFilelength = ftell(shaderFile);
+    rewind(shaderFile);
+    if (-1 == shaderFilelength) {
+        LOG_ERROR("[ShaderModule] Failed to inference SPIR-V file size: %s", shaderFilePath);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
 
-    // // Track the buffer because Vulkan won't free this later on for us.
-    // char* code = (char*) lease_alloc_owned_address(
-    //     vk_alloc_owner,
-    //     (size_t) length + 1,
-    //     alignof(char)
-    // );
-    // if (!code) {
-    //     fclose(file);
-    //     LOG_ERROR("Failed to allocate memory for shader file");
-    //     goto cleanup_device;
-    // }
+    // Track the buffer because Vulkan won't free this later on for us.
+    uint32_t* shaderCode = (uint32_t*) page_malloc(
+        pager,
+        (size_t) shaderFilelength + 1,
+        alignof(char)
+    );
 
-    // fread(code, 1, length, file); // assuming fread null terminates buffer for us
-    // fclose(file);
+    if (!shaderCode) {
+        LOG_ERROR("[ShaderModule] Failed to allocate %u bytes for SPIR-V shader", shaderCodeSize);
+        fclose(shaderFile);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    // Assuming fread null terminates buffer for us
+    fread(shaderCode, 1, shaderFilelength, shaderFile);
+    fclose(shaderFile);
+
+    LOG_INFO("[ShaderModule] file=%s, size=%u", shaderFilePath, shaderCodeSize);
+
+    /** @} */
 
     // /**
     //  * Create a Vulkan Shader Module
