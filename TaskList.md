@@ -1,19 +1,34 @@
-# Vulkan Pipeline Task List
+# Vulkan Compute Pipeline: Task Checklist
 
-## Core Pipeline
+A step-by-step overview for building a minimal headless Vulkan **compute pipeline**.
 
-- **Instance:** [x] Create a `VkInstance` to initialize Vulkan and interface with the loader and available drivers.
-- **Physical Device:** [x] Enumerate and select a `VkPhysicalDevice` that supports compute operations (`VK_QUEUE_COMPUTE_BIT`).
-- **Logical Device:** [x] Create a `VkDevice` from the physical device with a compute-capable queue family.
-- **Queue:** [x] Retrieve a compute queue (`VkQueue`) from the logical device using `vkGetDeviceQueue`.
-- **Shader Module:** [ ] Load your SPIR-V binary and create a `VkShaderModule` using `vkCreateShaderModule`.
-- **Descriptor Set Layout:** [ ] Define layout bindings for any resources (e.g., buffers) your shader uses; create `VkDescriptorSetLayout`.
-- **Pipeline Layout:** [ ] Create a `VkPipelineLayout` to bind descriptor sets and push constants (if used).
-- **Compute Pipeline:** [ ] Define the compute stage using your shader module and create a `VkPipeline` of type `COMPUTE`.
-- **Buffer Creation:** [ ] Allocate a `VkBuffer` with usage flag `VK_BUFFER_USAGE_STORAGE_BUFFER_BIT` and map host-visible memory if needed.
-- **Descriptor Pool:** [ ] Create a `VkDescriptorPool` to allocate descriptor sets.
-- **Descriptor Set:** [ ] Allocate a `VkDescriptorSet` from the pool and write buffer bindings to it with `vkUpdateDescriptorSets`.
-- **Command Pool & Buffer:** [ ] Create a `VkCommandPool` and allocate a `VkCommandBuffer`. Begin recording commands.
-- **Command Recording:** [ ] Record commands to bind pipeline, descriptor set, and dispatch compute work (`vkCmdDispatch`).
-- **Submit & Synchronize:** [ ] Submit the command buffer to the queue. Use a `VkFence` to wait until execution completes.
-- **Cleanup:** [ ] Destroy all Vulkan objects and free all allocated memory to clean up the framework.
+## 🔧 Core Setup
+
+* [x] **Instance**: Create a `VkInstance` to initialize Vulkan and connect to the loader and drivers.
+* [x] **Physical Device**: Enumerate and select a `VkPhysicalDevice` that supports `VK_QUEUE_COMPUTE_BIT`.
+* [x] **Logical Device**: Create a `VkDevice` with a compute-capable queue family.
+* [x] **Queue**: Retrieve the compute queue using `vkGetDeviceQueue`.
+
+## 📦 Shader & Pipeline
+
+* [ ] **Shader Module**: Load your SPIR-V binary and create a `VkShaderModule`.
+* [ ] **Descriptor Set Layout**: Define resource bindings (e.g., buffers), then create `VkDescriptorSetLayout`.
+* [ ] **Pipeline Layout**: Create a `VkPipelineLayout` to combine descriptor sets and optional push constants.
+* [ ] **Compute Pipeline**: Create a `VkPipeline` (type `COMPUTE`) using your shader and layout.
+
+## 🧱 Resource Allocation
+
+* [ ] **Buffer Creation**: Allocate `VkBuffer`(s) with usage `VK_BUFFER_USAGE_STORAGE_BUFFER_BIT`. Bind and map memory if host-visible access is needed.
+* [ ] **Descriptor Pool**: Create a `VkDescriptorPool` to manage descriptor set allocation.
+* [ ] **Descriptor Set**: Allocate `VkDescriptorSet` and bind buffers using `vkUpdateDescriptorSets`.
+
+## 🎮 Command & Execution
+
+* [ ] **Command Pool & Buffer**: Create a `VkCommandPool` and allocate a `VkCommandBuffer`.
+* [ ] **Record Commands**: Begin recording. Bind pipeline and descriptor sets, then call `vkCmdDispatch`.
+* [ ] **Submit & Sync**: Submit the command buffer. Use a `VkFence` to block until execution finishes.
+
+## 🧹 Cleanup
+
+* [ ] Destroy all Vulkan objects.
+* [ ] Free all allocated memory and resources.
