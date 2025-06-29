@@ -727,10 +727,10 @@ int main(void) {
         .pCode = shaderCode,
     };
 
-    VkShaderModule vkShaderModule;
+    VkShaderModule vkShaderModule = VK_NULL_HANDLE;
     result = vkCreateShaderModule(vkDevice, &vkShaderInfo, &vkAllocationCallback, &vkShaderModule);
-    if (result != VK_SUCCESS) {
-        LOG_ERROR("Failed to create shader module from %s", shaderFilePath);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("Failed to create shader module from %s (VkResult=%d)", shaderFilePath, result);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         page_allocator_free(pager);
