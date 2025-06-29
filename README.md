@@ -1,16 +1,16 @@
-# VkMinimal
+# VkC
 
 A headless compute pipeline using Vulkan in C.
 
 ## Overview
 
-**VkMinimal** is designed for raw, low-level GPU compute on Unix-like systems. It emphasizes
+**VkC** is designed for raw, low-level GPU compute on Unix-like systems. It emphasizes
 transparency, portability, and simplicity—**no rendering**, **no windowing**, **no BS**. All GPU
 work is performed via compute shaders.
 
 ## Dependencies
 
-VkMinimal relies on the following components:
+VkC relies on the following components:
 
 - **POSIX** — For broad Unix compatibility.
 - **Linux** — Target platform; tested on Arch Linux.
