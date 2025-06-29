@@ -1,4 +1,7 @@
-// shaders/mean.comp
+/** 
+ * @file shaders/mean.comp
+ */
+
 #version 460
 #extension GL_EXT_shader_atomic_float : enable
 
