@@ -750,6 +750,11 @@ int main(void) {
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
     page_allocator_free(pager);
 
-    LOG_INFO("[VkCompute] EXIT_SUCCESS: %d", EXIT_SUCCESS);
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug Mode: Exit Success");
+#else
+    LOG_INFO("[VkCompute] Release Mode: Exit Success");
+#endif
+
     return EXIT_SUCCESS;
 }
