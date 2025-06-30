@@ -546,8 +546,10 @@ int main(void) {
 
     uint32_t vkDeviceExtensionNameCount = 14;
     char const* vkDeviceExtensionNames[] = {
+        "VK_EXT_descriptor_buffer",
         "VK_EXT_shader_atomic_float",
-
+        "VK_EXT_subgroup_size_control",
+    
         "VK_KHR_8bit_storage",
         "VK_KHR_16bit_storage",
         "VK_KHR_shader_float16_int8",
@@ -587,30 +589,55 @@ int main(void) {
 
     /**
      * @name Physical Device Features
+     * @ref https://docs.vulkan.org/guide/latest/enabling_features.html
+     * @{
      */
 
-    /// @todo Look into physical device features
-    /// @ref https://docs.vulkan.org/guide/latest/enabling_features.html
+    // Extensions
+
+    VkPhysicalDeviceDescriptorBufferFeaturesEXT deviceDescriptorBuffer = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+        .descriptorBufferImageLayoutIgnored = VK_TRUE,
+    };
 
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT deviceShaderAtomicFloat = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
     };
 
-    VkPhysicalDeviceVulkan12Features deviceVulkan12Features = {
+    // Chain
+
+    VkPhysicalDeviceVulkan12Features deviceVulkan12 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &deviceShaderAtomicFloat,
     };
+
+    // Chain extensions on an as-needed basis
+    deviceShaderAtomicFloat.pNext = NULL;
+    deviceDescriptorBuffer.pNext = &deviceShaderAtomicFloat;
+    deviceVulkan12.pNext = &deviceDescriptorBuffer;
+
+    // Features
 
     VkPhysicalDeviceFeatures2 deviceFeatures2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &deviceVulkan12Features,
+        .pNext = &deviceVulkan12,
     };
 
     vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &deviceFeatures2);
 
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    if (deviceDescriptorBuffer.descriptorBuffer) {
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] descriptorBuffer=%s", deviceDescriptorBuffer.descriptorBuffer ? "true" : "false");
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] descriptorBufferImageLayoutIgnored=%s", deviceDescriptorBuffer.descriptorBufferImageLayoutIgnored ? "true" : "false");
+    } else {
+        LOG_ERROR("[VkPhysialDeviceFeatures2] Descriptor buffer is unsupported for the selected GPU.");
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
     if (deviceShaderAtomicFloat.shaderBufferFloat32Atomics) {
-        LOG_INFO("[VkPhysicalDeviceFeatures2] shaderBufferFloat32Atomics=%s", deviceShaderAtomicFloat.shaderBufferFloat32Atomics ? "true" : "false");
-        LOG_INFO("[VkPhysicalDeviceFeatures2] shaderBufferFloat32AtomicAdd=%s", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd ? "true" : "false");
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] shaderBufferFloat32Atomics=%s", deviceShaderAtomicFloat.shaderBufferFloat32Atomics ? "true" : "false");
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] shaderBufferFloat32AtomicAdd=%s", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd ? "true" : "false");
     } else {
         LOG_ERROR("[VkPhysialDeviceFeatures2] Atomicity is unsupported for the selected GPU.");
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
@@ -618,10 +645,15 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    if (deviceVulkan12Features.shaderFloat16) {
-        LOG_INFO("[VkPhysicalDeviceVulkan12Features] shaderFloat16=%s", deviceVulkan12Features.shaderFloat16 ? "true" : "false");
-        LOG_INFO("[VkPhysicalDeviceVulkan12Features] shaderInt8=%s", deviceVulkan12Features.shaderInt8 ? "true" : "false");
+    if (deviceVulkan12.shaderFloat16) {
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] shaderFloat16=%s", deviceVulkan12.shaderFloat16 ? "true" : "false");
+        LOG_DEBUG("[VkPhysicalDeviceFeatures2] shaderInt8=%s", deviceVulkan12.shaderInt8 ? "true" : "false");
     }
+#endif
+
+    LOG_INFO("[VkPhysicalDeviceFeatures2] Enabled physical device extensions.");
+
+    /** @} */
 
     /**
      * @name Logical Device
@@ -789,9 +821,89 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Pipeline Layout
+     */
+
+    VkPipelineLayoutCreateInfo layoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptorSetLayout
+    };
+
+    VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
+    result = vkCreatePipelineLayout(
+        vkDevice,
+        &layoutCreateInfo,
+        &vkAllocationCallback,
+        &vkPipelineLayout
+    );
+
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkPipelineLayout] Failed to create pipeline layout.");
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkPipelineLayout] Created pipeline layout @ %p", vkPipelineLayout);
+
+    /** @} */
+
+    /**
+     * @name Shader Stage
+     */
+
+    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module = vkShaderModule,
+        .pName = "main",
+    };
+
+    /** @} */
+
+    /**
+     * @name Compute Pipeline
+     */
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+        .stage = pipelineShaderStageCreateInfo,
+        .layout = vkPipelineLayout,
+    };
+
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+    result = vkCreateComputePipelines(
+        vkDevice,
+        NULL,
+        1,
+        &computePipelineCreateInfo,
+        &vkAllocationCallback,
+        &vkPipeline
+    );
+
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkPipeline] Failed to create compute pipeline.");
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    /** @} */
+
+    /**
      * Clean up
      */
 
+    vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
+    vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
     vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayout, &vkAllocationCallback);
     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
     vkDestroyDevice(vkDevice, &vkAllocationCallback);
