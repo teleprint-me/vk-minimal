@@ -543,7 +543,7 @@ int main(void) {
     }
 #endif
 
-    uint32_t vkDeviceExtensionNameCount = 14;
+    uint32_t vkDeviceExtensionNameCount = 12;
     char const* vkDeviceExtensionNames[] = {
         "VK_EXT_descriptor_buffer",
         "VK_EXT_shader_atomic_float",
@@ -553,16 +553,11 @@ int main(void) {
         "VK_KHR_16bit_storage",
         "VK_KHR_shader_float16_int8",
         "VK_KHR_shader_float_controls",
-        "VK_KHR_shader_integer_dot_product",
         "VK_KHR_compute_shader_derivatives",
         "VK_KHR_device_group",
         "VK_KHR_external_fence",
         "VK_KHR_external_memory",
         "VK_KHR_external_semaphore",
-
-        "VK_AMD_shader_core_properties",
-        "VK_AMD_gpu_shader_half_float",
-        "VK_AMD_gpu_shader_int16",
     };
 
     bool vkDeviceExtensionPropertyFound = true;
@@ -604,6 +599,10 @@ int main(void) {
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT deviceShaderAtomicFloat = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
     };
+
+    // The Vulkan spec states: If the pNext chain includes a VkPhysicalDeviceVulkan12Features
+    // structure, then it must not include a
+    // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES structure
 
     /**
      * @section Feature Chains
