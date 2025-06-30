@@ -1,5 +1,6 @@
 /** 
  * @file shaders/mean.comp
+ * @brief Calculate the mean of a buffer of floats.
  */
 
 #version 460
