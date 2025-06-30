@@ -872,7 +872,7 @@ int main(void) {
      */
 
     /**
-     * @section Input Storage Buffer
+     * @section Storage Buffer: Create Input Buffer
      */
 
     VkBufferCreateInfo inputBufferCreateInfo = {
@@ -895,7 +895,7 @@ int main(void) {
     }
 
     /**
-     * @section Memory Allocation
+     * @section Input Buffer: Memory Allocation
      */
 
     VkMemoryRequirements inputMemoryRequirements = {0};
@@ -959,7 +959,7 @@ int main(void) {
     }
 
     /**
-     * @section Memory Mapping and Data Initialization
+     * @section Input Buffer: Memory Mapping and Data Initialization
      */
 
     void* mapped = NULL;
