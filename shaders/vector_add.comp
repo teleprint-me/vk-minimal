@@ -1,0 +1,25 @@
+/**
+ * @file shaders/vector_add.comp
+ * @brief Calculate the sum of two vectors.
+ */
+
+#version 460
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) readonly buffer InputA {
+    float a[];
+};
+
+layout(set = 0, binding = 1) readonly buffer InputB {
+    float b[];
+};
+
+layout(set = 0, binding = 2) writeonly buffer Output {
+    float result[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    result[idx] = a[idx] + b[idx];
+}
