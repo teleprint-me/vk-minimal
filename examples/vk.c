@@ -259,11 +259,10 @@ int main(void) {
 
     /**
      * @name Enumerate Physical Device List
+     * @todo Look into VK_KHR_device_group and vkEnumeratePhysicalDeviceGroups
+     * @note Multi-GPU support is postponed until single device support is stable.
      * @{
      */
-
-    /// @todo Look into VK_KHR_device_group and vkEnumeratePhysicalDeviceGroups
-    /// @note Multi-GPU support is postponed until single device support is stable.
 
     uint32_t vkPhysicalDeviceCount = 0;
     result = vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, NULL);
@@ -703,6 +702,8 @@ int main(void) {
 
     LOG_INFO("[VkQueue] Create logical queue @ %p.", vkQueue);
 
+    /** @} */
+
     /**
      * @name Read SPIR-V File
      * @{
@@ -779,7 +780,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @name Descriptor Set
+     * @name Descriptor Set Layout
      * @{
      */
 
@@ -899,7 +900,8 @@ int main(void) {
     /** @} */
 
     /**
-     * Clean up
+     * @name Clean up
+     * @{
      */
 
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
@@ -917,4 +919,6 @@ int main(void) {
 #endif
 
     return EXIT_SUCCESS;
+
+    /** {@ */
 }
