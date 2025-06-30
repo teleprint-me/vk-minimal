@@ -543,7 +543,7 @@ int main(void) {
     }
 #endif
 
-    uint32_t vkDeviceExtensionNameCount = 12;
+    uint32_t vkDeviceExtensionNameCount = 13;
     char const* vkDeviceExtensionNames[] = {
         "VK_EXT_descriptor_buffer",
         "VK_EXT_shader_atomic_float",
@@ -554,6 +554,7 @@ int main(void) {
         "VK_KHR_shader_float16_int8",
         "VK_KHR_shader_float_controls",
         "VK_KHR_compute_shader_derivatives",
+        "VK_KHR_uniform_buffer_standard_layout",
         "VK_KHR_device_group",
         "VK_KHR_external_fence",
         "VK_KHR_external_memory",
