@@ -17,6 +17,7 @@
 #include "core/logger.h"
 #include "allocator/page.h"
 #include "utf8/raw.h"
+#include "numeric/lehmer.h"
 
 #include "vk/allocator.h"
 #include <vulkan/vulkan.h>
@@ -893,6 +894,10 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    /**
+     * @section Memory Allocation
+     */
+
     VkMemoryRequirements inputMemoryRequirements = {0};
     vkGetBufferMemoryRequirements(vkDevice, inputBuffer, &inputMemoryRequirements);
 
@@ -952,6 +957,31 @@ int main(void) {
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         return EXIT_FAILURE;
     }
+
+    /**
+     * @section Memory Mapping and Data Initialization
+     */
+
+    void* mapped = NULL;
+    result = vkMapMemory(vkDevice, inputMemory, 0, 64 * sizeof(float), 0, &mapped);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkMemory] Failed to map input memory.");
+        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        return EXIT_FAILURE;
+    }
+
+    lehmer_initialize(LEHMER_SEED);
+    float* data = (float*) mapped;
+    for (uint32_t i = 0; i < 64; i++) {
+        data[i] = lehmer_generate_float();
+    }
+    vkUnmapMemory(vkDevice, inputMemory);
 
     /**
      * @section Output Storage Buffer
