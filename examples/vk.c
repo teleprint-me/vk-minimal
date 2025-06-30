@@ -1,5 +1,11 @@
 /**
  * @file examples/vk.c
+ * @brief A headless compute pipeline using Vulkan in C.
+ *
+ * VkC is designed for raw, low-level GPU compute on Unix-like systems.
+ * It emphasizes transparency, portability, and simplicity—no rendering, no windowing, no BS.
+ * All GPU work is performed via compute shaders.
+ *
  * @ref https://vulkan-tutorial.com
  * @ref https://docs.vulkan.org
  * @ref https://vulkan.gpuinfo.org
