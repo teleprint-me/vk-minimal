@@ -790,7 +790,7 @@ int main(void) {
      * @{
      */
 
-    VkDescriptorSetLayoutBinding bindings[2] = {
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[2] = {
         {
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -807,14 +807,14 @@ int main(void) {
         },
     };
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo = {
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .bindingCount = 2,
-        .pBindings = bindings,
+        .pBindings = descriptorSetLayoutBindings,
     };
 
-    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-    result = vkCreateDescriptorSetLayout(vkDevice, &layoutInfo, &vkAllocationCallback, &descriptorSetLayout);
+    VkDescriptorSetLayout vkDescriptorSetLayout = VK_NULL_HANDLE;
+    result = vkCreateDescriptorSetLayout(vkDevice, &descriptorSetLayoutCreateInfo, &vkAllocationCallback, &vkDescriptorSetLayout);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkDescriptorSetLayout] Failed to create the descriptor set layout (VkResult=%d)", result);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
@@ -823,7 +823,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p", descriptorSetLayout);
+    LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p", vkDescriptorSetLayout);
 
     /** @} */
 
@@ -831,16 +831,16 @@ int main(void) {
      * @name Pipeline Layout
      */
 
-    VkPipelineLayoutCreateInfo layoutCreateInfo = {
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout
+        .pSetLayouts = &vkDescriptorSetLayout
     };
 
     VkPipelineLayout vkPipelineLayout = VK_NULL_HANDLE;
     result = vkCreatePipelineLayout(
         vkDevice,
-        &layoutCreateInfo,
+        &pipelineLayoutCreateInfo,
         &vkAllocationCallback,
         &vkPipelineLayout
     );
@@ -895,7 +895,7 @@ int main(void) {
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPipeline] Failed to create compute pipeline.");
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
         vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
@@ -912,7 +912,7 @@ int main(void) {
 
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-    vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayout, &vkAllocationCallback);
+    vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
     vkDestroyDevice(vkDevice, &vkAllocationCallback);
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
