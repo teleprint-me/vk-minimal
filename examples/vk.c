@@ -592,7 +592,9 @@ int main(void) {
      * @{
      */
 
-    // Extensions
+    /**
+     * @section Feature Extensions
+     */
 
     VkPhysicalDeviceDescriptorBufferFeaturesEXT deviceDescriptorBuffer = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
@@ -603,18 +605,22 @@ int main(void) {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
     };
 
-    // Chain
+    /**
+     * @section Feature Chains
+     * @note Chain extensions on an as-needed basis.
+     */
 
     VkPhysicalDeviceVulkan12Features deviceVulkan12 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
     };
 
-    // Chain extensions on an as-needed basis
     deviceShaderAtomicFloat.pNext = NULL;
     deviceDescriptorBuffer.pNext = &deviceShaderAtomicFloat;
     deviceVulkan12.pNext = &deviceDescriptorBuffer;
 
-    // Features
+    /** 
+     * @section Device Features
+     */
 
     VkPhysicalDeviceFeatures2 deviceFeatures2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
