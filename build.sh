@@ -6,7 +6,7 @@ BUILD_PATH="build"
 BUILD_TYPE="${1:-Debug}"
 SHADER_DIR="shaders"
 SHADER_OUT_DIR="${BUILD_PATH}/shaders"
-SHADERS=("mean.comp")
+SHADERS=("mean.comp" "vector_add.comp")
 
 # Clean previous build
 echo "Cleaning previous build..."
