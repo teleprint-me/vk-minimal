@@ -584,6 +584,11 @@ int main(void) {
     /**
      * @name Physical Device Features
      * @ref https://docs.vulkan.org/guide/latest/enabling_features.html
+     * @note The Vulkan spec states:
+     * If the pNext chain includes a
+     * VkPhysicalDeviceVulkan12Features structure,
+     * then it must not include a
+     * VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES structure
      * @{
      */
 
@@ -599,10 +604,6 @@ int main(void) {
     VkPhysicalDeviceShaderAtomicFloatFeaturesEXT deviceShaderAtomicFloat = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
     };
-
-    // The Vulkan spec states: If the pNext chain includes a VkPhysicalDeviceVulkan12Features
-    // structure, then it must not include a
-    // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES structure
 
     /**
      * @section Feature Chains
