@@ -709,7 +709,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkDevice] Created logical device @ %p", vkDevice);
+    LOG_INFO("[VkDevice] Created logical device @ %p.", vkDevice);
 
     VkQueue vkQueue = VK_NULL_HANDLE;
     vkGetDeviceQueue(vkDevice, vkQueueFamilyIndex, 0, &vkQueue);
@@ -789,7 +789,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkShaderModule] Created shader module @ %p", vkShaderModule);
+    LOG_INFO("[VkShaderModule] Created shader module @ %p.", vkShaderModule);
 
     /** @} */
 
@@ -831,7 +831,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p", vkDescriptorSetLayout);
+    LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p.", vkDescriptorSetLayout);
 
     /** @} */
 
@@ -862,7 +862,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkPipelineLayout] Created pipeline layout @ %p", vkPipelineLayout);
+    LOG_INFO("[VkPipelineLayout] Created pipeline layout @ %p.", vkPipelineLayout);
 
     /** @} */
 
@@ -911,6 +911,8 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    LOG_INFO("[VkPipeline] Created compute pipeline @ %p.", vkPipeline);
+
     /** @} */
 
     /**
@@ -941,6 +943,8 @@ int main(void) {
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
         return EXIT_FAILURE;
     }
+
+    LOG_INFO("[VkBuffer] Created input storage buffer @ %p.", inputBuffer);
 
     /**
      * @section Input Buffer: Memory Allocation
@@ -984,7 +988,7 @@ int main(void) {
     VkDeviceMemory inputMemory = VK_NULL_HANDLE;
     result = vkAllocateMemory(vkDevice, &inputAllocInfo, &vkAllocationCallback, &inputMemory);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkMemory] Failed to allocate memory for input buffer.");
+        LOG_ERROR("[VkMemory] Failed to allocate memory for input buffer (VkResult=%d).", result);
         vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
         vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
@@ -997,7 +1001,7 @@ int main(void) {
 
     result = vkBindBufferMemory(vkDevice, inputBuffer, inputMemory, 0);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkMemory] Failed to bind input memory to buffer.");
+        LOG_ERROR("[VkMemory] Failed to bind input memory to buffer (VkResult=%d).", result);
         vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
         vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
         vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
@@ -1009,6 +1013,8 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    LOG_INFO("[VkMemory] Allocated and bound input buffer to device @ %p.", inputMemory);
+
     /**
      * @section Input Buffer: Memory Mapping and Data Initialization
      */
@@ -1016,7 +1022,7 @@ int main(void) {
     void* mapped = NULL;
     result = vkMapMemory(vkDevice, inputMemory, 0, 64 * sizeof(float), 0, &mapped);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkMemory] Failed to map input memory.");
+        LOG_ERROR("[VkMapMemory] Failed to map input memory (VkResult=%d).", result);
         vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
         vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
         vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
@@ -1034,6 +1040,8 @@ int main(void) {
         data[i] = lehmer_generate_float();
     }
     vkUnmapMemory(vkDevice, inputMemory);
+
+    LOG_INFO("[VkMapMemory] Mapped memory and initialized data @ %p.", mapped);
 
     /**
      * @section Output Storage Buffer
