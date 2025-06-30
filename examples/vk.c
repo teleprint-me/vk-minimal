@@ -981,12 +981,8 @@ int main(void) {
     /** @} */
 
     /**
-     * @name Storage Buffer
+     * @name Input Storage Buffer
      * @{
-     */
-
-    /**
-     * @section Storage Buffer: Create Input Buffer
      */
 
     VkBufferCreateInfo inputBufferCreateInfo = {
@@ -1011,8 +1007,11 @@ int main(void) {
 
     LOG_INFO("[VkBuffer] Created input storage buffer @ %p.", inputBuffer);
 
+    /** @} */
+
     /**
-     * @section Input Buffer: Memory Allocation
+     * @name Input Storage Buffer: Allocate Memory
+     * @{
      */
 
     VkMemoryRequirements inputMemoryRequirements = {0};
@@ -1080,8 +1079,11 @@ int main(void) {
 
     LOG_INFO("[VkMemory] Allocated and bound input buffer to device @ %p.", inputMemory);
 
+    /** @} */
+
     /**
-     * @section Input Buffer: Memory Mapping and Data Initialization
+     * @name Input Storage Buffer: Upload data
+     * @{
      */
 
     void* mapped = NULL;
@@ -1108,8 +1110,11 @@ int main(void) {
 
     LOG_INFO("[VkMapMemory] Mapped memory and initialized data @ %p.", mapped);
 
+    /** @} */
+
     /**
-     * @section Output Storage Buffer
+     * @name Output Storage Buffer
+     * @{
      */
 
     // VkBuffer outputBuffer = VK_NULL_HANDLE;
