@@ -105,7 +105,7 @@ int main(void) {
     for (uint32_t i = 0; i < vkInstanceLayerPropertyCount; i++) {
         if (0 == utf8_raw_compare(vkInstanceLayerProperties[i].layerName, vkInstanceLayerPropertyNames[0])) {
             vkInstanceLayerPropertyFound = true;
-            LOG_INFO("[VkCreateInfo] Enabling Layer: %s", vkInstanceLayerProperties[i].layerName);
+            LOG_INFO("[InstanceCreateInfo] Enabling Layer: %s", vkInstanceLayerProperties[i].layerName);
             break;
         }
     }
@@ -172,13 +172,13 @@ int main(void) {
                 vkInstanceExtensionPropertyNames[i],
                 vkInstanceExtensionProperties[j].extensionName)) {
                 found = true;
-                LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
+                LOG_INFO("[InstanceCreateInfo] Enabling Extension: %s", vkInstanceExtensionPropertyNames[i]);
                 break;
             }
         }
 
         if (!found) {
-            LOG_WARN("[VkCreateInfo] Extension not available: %s", vkInstanceExtensionPropertyNames[i]);
+            LOG_WARN("[InstanceCreateInfo] Extension not available: %s", vkInstanceExtensionPropertyNames[i]);
             vkInstanceExtensionPropertyFound = false;
         }
     }
@@ -490,7 +490,7 @@ int main(void) {
         for (uint32_t i = 0; i < vkDeviceLayerPropertyCount; i++) {
             if (0 == utf8_raw_compare(vkDeviceLayerProperties[i].layerName, vkDeviceLayerPropertyNames[0])) {
                 vkDeviceLayerPropertyFound = true;
-                LOG_INFO("[VkCreateInfo] Enabling Layer: %s", vkDeviceLayerProperties[i].layerName);
+                LOG_INFO("[DeviceCreateInfo] Enabling Layer: %s", vkDeviceLayerProperties[i].layerName);
                 break;
             }
         }
@@ -573,13 +573,13 @@ int main(void) {
                 vkDeviceExtensionNames[i],
                 vkDeviceExtensionProperties[j].extensionName)) {
                 found = true;
-                LOG_INFO("[VkCreateInfo] Enabling Extension: %s", vkDeviceExtensionNames[i]);
+                LOG_INFO("[DeviceCreateInfo] Enabling Extension: %s", vkDeviceExtensionNames[i]);
                 break;
             }
         }
 
         if (!found) {
-            LOG_WARN("[VkCreateInfo] Extension not available: %s", vkDeviceExtensionNames[i]);
+            LOG_WARN("[DeviceCreateInfo] Extension not available: %s", vkDeviceExtensionNames[i]);
             vkInstanceExtensionPropertyFound = false;
         }
     }
