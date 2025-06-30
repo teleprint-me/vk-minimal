@@ -19,12 +19,72 @@
 #include "utf8/raw.h"
 #include "numeric/lehmer.h"
 
-#include "vk/allocator.h"
 #include <vulkan/vulkan.h>
 
 #include <stdalign.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+/**
+ * @name Allocator Callbacks
+ * @note These must be defined because the allocator expects function pointers.
+ * @{
+ */
+
+void* VKAPI_CALL
+vkc_malloc(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope scope) {
+    (void) scope;
+
+    PageAllocator* allocator = (PageAllocator*) pUserData;
+    if (NULL == allocator) {
+        LOG_ERROR("[VK_ALLOC] Missing allocation context (PageAllocator)");
+        return NULL;
+    }
+
+    void* address = page_malloc(allocator, size, alignment);
+    if (NULL == address) {
+        LOG_ERROR("[VK_ALLOC] Allocation failed (size=%zu, align=%zu)", size, alignment);
+        return NULL;
+    }
+
+    return address;
+}
+
+void* VKAPI_CALL vkc_realloc(
+    void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope scope
+) {
+    (void) scope;
+
+    PageAllocator* allocator = (PageAllocator*) pUserData;
+    if (NULL == allocator) {
+        LOG_ERROR("[VK_REALLOC] Missing allocation context (PageAllocator)");
+        return NULL;
+    }
+
+    void* address = page_realloc(allocator, pOriginal, size, alignment);
+    if (!address) {
+        LOG_ERROR(
+            "[VK_REALLOC] Allocation failed (pOriginal=%p, size=%zu, align=%zu)",
+            pOriginal,
+            size,
+            alignment
+        );
+        return NULL;
+    }
+
+    return address;
+}
+
+void VKAPI_CALL vkc_free(void* pUserData, void* pMemory) {
+    PageAllocator* allocator = (PageAllocator*) pUserData;
+    if (NULL == allocator || NULL == pMemory) {
+        return;
+    }
+
+    page_free(allocator, pMemory);
+}
+
+/** @} */
 
 int main(void) {
     /**
@@ -42,12 +102,17 @@ int main(void) {
     /** @} */
 
     /**
-     * @name Page Allocator
+     * @name Memory Allocators
      * @{
      */
 
     PageAllocator* pager = page_allocator_create(1024);
-    VkAllocationCallbacks vkAllocationCallback = vkc_page_callbacks(pager);
+    VkAllocationCallbacks vkAllocationCallback = (VkAllocationCallbacks) {
+        .pUserData = pager,
+        .pfnAllocation = vkc_malloc,
+        .pfnReallocation = vkc_realloc,
+        .pfnFree = vkc_free,
+    };
 
     /** @} */
 
