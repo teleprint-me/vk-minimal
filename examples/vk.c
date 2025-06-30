@@ -866,6 +866,122 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Storage Buffer
+     * @{
+     */
+
+    /**
+     * @section Input Storage Buffer
+     */
+
+    VkBufferCreateInfo inputBufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = 64 * sizeof(float),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+
+    VkBuffer inputBuffer = VK_NULL_HANDLE;
+    result = vkCreateBuffer(vkDevice, &inputBufferCreateInfo, &vkAllocationCallback, &inputBuffer);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkBuffer] Failed to create input storage buffer (VkSuccess=%d).", result);
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        return EXIT_FAILURE;
+    }
+
+    VkMemoryRequirements inputMemoryRequirements = {0};
+    vkGetBufferMemoryRequirements(vkDevice, inputBuffer, &inputMemoryRequirements);
+
+    VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties = {0};
+    vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice, &physicalDeviceMemoryProperties);
+
+    uint32_t memoryType = UINT32_MAX;
+    for (uint32_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; ++i) {
+        if ((inputMemoryRequirements.memoryTypeBits & (1 << i)) &&
+            (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags &
+            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) ==
+                (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+            memoryType = i;
+            break;
+        }
+    }
+
+    if (UINT32_MAX == memoryType) {
+        LOG_ERROR("[VkMemory] Failed to find a suitable memory type for input buffer.");
+        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        return EXIT_FAILURE;
+    }
+
+    VkMemoryAllocateInfo inputAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = inputMemoryRequirements.size,
+        .memoryTypeIndex = memoryType,
+    };
+
+    VkDeviceMemory inputMemory = VK_NULL_HANDLE;
+    result = vkAllocateMemory(vkDevice, &inputAllocInfo, &vkAllocationCallback, &inputMemory);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkMemory] Failed to allocate memory for input buffer.");
+        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        return EXIT_FAILURE;
+    }
+
+    result = vkBindBufferMemory(vkDevice, inputBuffer, inputMemory, 0);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkMemory] Failed to bind input memory to buffer.");
+        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+        vkDestroyDevice(vkDevice, &vkAllocationCallback);
+        vkDestroyInstance(vkInstance, &vkAllocationCallback);
+        return EXIT_FAILURE;
+    }
+
+    /**
+     * @section Output Storage Buffer
+     */
+
+    // VkBuffer outputBuffer = VK_NULL_HANDLE;
+    // VkDeviceMemory outputMemory = VK_NULL_HANDLE;
+
+    // VkBufferCreateInfo outputBufferCreateInfo = {
+    //     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    //     .size = sizeof(float),
+    //     .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    //     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    // };
+
+    // result = vkCreateBuffer(vkDevice, &outputBufferCreateInfo, &vkAllocationCallback, &outputBuffer);
+    // if (VK_SUCCESS != result) {
+    //     LOG_ERROR("[VkBuffer] Failed to create output storage buffer (VkSuccess=%d).", result);
+    //     vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+    //     vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+    //     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+    //     vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+    //     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+    //     vkDestroyDevice(vkDevice, &vkAllocationCallback);
+    //     vkDestroyInstance(vkInstance, &vkAllocationCallback);
+    // }
+
+    /** @} */
+
+    /**
      * @name Shader Stage
      */
 
@@ -901,6 +1017,8 @@ int main(void) {
 
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPipeline] Failed to create compute pipeline.");
+        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
         vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
@@ -918,6 +1036,8 @@ int main(void) {
      */
 
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
+    vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+    vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
     vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
