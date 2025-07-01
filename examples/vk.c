@@ -134,8 +134,7 @@ int main(void) {
     result = vkEnumerateInstanceLayerProperties(&vkInstanceLayerPropertyCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[InstanceLayerProperties] Failed to enumerate instance layer property count.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
 
     VkLayerProperties* vkInstanceLayerProperties = page_malloc(
@@ -148,8 +147,7 @@ int main(void) {
             "[InstanceLayerProperties] Failed to allocate %u instance layer property objects.", 
             vkInstanceLayerPropertyCount
         );
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
     memset(vkInstanceLayerProperties, 0, vkInstanceLayerPropertyCount * sizeof(VkLayerProperties));
 
@@ -158,8 +156,7 @@ int main(void) {
     );
     if (VK_SUCCESS != result) {
         LOG_ERROR("[InstanceLayerProperties] Failed to enumerate instance layer properties.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
@@ -193,8 +190,7 @@ int main(void) {
     result = vkEnumerateInstanceExtensionProperties(NULL, &vkInstanceExtensionPropertyCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[InstanceExtensionProperties] Failed to enumerate instance extension property count.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
 
     VkExtensionProperties* vkInstanceExtensionProperties = page_malloc(
@@ -204,16 +200,14 @@ int main(void) {
     );
     if (NULL == vkInstanceExtensionProperties) {
         LOG_ERROR("[InstanceExtensionProperties] Failed to allocate %u instance extension property objects.", vkInstanceExtensionPropertyCount);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
     memset(vkInstanceExtensionProperties, 0, vkInstanceExtensionPropertyCount * sizeof(VkExtensionProperties));
 
     result = vkEnumerateInstanceExtensionProperties(NULL, &vkInstanceExtensionPropertyCount, vkInstanceExtensionProperties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[InstanceExtensionProperties] Failed to enumerate instance extension properties.");
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
@@ -319,8 +313,7 @@ int main(void) {
     result = vkCreateInstance(&vkInstanceCreateInfo, &vkAllocationCallback, &vkInstance);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkInstance] Failed to create instance object: %d", result);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pager;
     }
 
     // Free dead weight
@@ -344,9 +337,7 @@ int main(void) {
             result,
             vkPhysicalDeviceCount
         );
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     VkPhysicalDevice* vkPhysicalDeviceList = page_malloc(
@@ -356,17 +347,13 @@ int main(void) {
     );
     if (NULL == vkPhysicalDeviceList) {
         LOG_ERROR("[VkPhysicalDevice] Failed to allocate device list.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     result = vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, vkPhysicalDeviceList);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPhysicalDevice] Failed to enumerate devices (VkResult: %d)", result);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
@@ -405,9 +392,7 @@ int main(void) {
 
         if (NULL == queue_families) {
             LOG_ERROR("[VkPhysicalDevice] Failed to allocate queue families.");
-            vkDestroyInstance(vkInstance, &vkAllocationCallback);
-            page_allocator_free(pager);
-            return EXIT_FAILURE;
+            goto cleanup_instance;
         }
 
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
@@ -465,9 +450,7 @@ int main(void) {
 
             if (NULL == queue_families) {
                 LOG_ERROR("[VkPhysicalDevice] Failed to allocate queue families.");
-                vkDestroyInstance(vkInstance, &vkAllocationCallback);
-                page_allocator_free(pager);
-                return EXIT_FAILURE;
+                goto cleanup_instance;
             }
 
             vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
@@ -502,9 +485,7 @@ int main(void) {
 
     if (VK_NULL_HANDLE == vkPhysicalDevice) {
         LOG_ERROR("[VkPhysicalDevice] No suitable compute device found.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     /** @} */
@@ -518,9 +499,7 @@ int main(void) {
     result = vkEnumerateDeviceLayerProperties(vkPhysicalDevice, &vkDeviceLayerPropertyCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[DeviceLayerProperties] Failed to enumerate device layer property count.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     bool vkDeviceLayerPropertyFound = false;
@@ -536,17 +515,13 @@ int main(void) {
 
         if (NULL == vkDeviceLayerProperties) {
             LOG_ERROR("[DeviceLayerProperties] Failed to allocate device layer properties.");
-            vkDestroyInstance(vkInstance, &vkAllocationCallback);
-            page_allocator_free(pager);
-            return EXIT_FAILURE;
+            goto cleanup_instance;
         }
 
         result = vkEnumerateDeviceLayerProperties(vkPhysicalDevice, &vkDeviceLayerPropertyCount, vkDeviceLayerProperties);
         if (VK_SUCCESS != result) {
             LOG_ERROR("[DeviceLayerProperties] Failed to enumerate device layer properties.");
-            vkDestroyInstance(vkInstance, &vkAllocationCallback);
-            page_allocator_free(pager);
-            return EXIT_FAILURE;
+            goto cleanup_instance;
         }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
@@ -582,9 +557,7 @@ int main(void) {
     result = vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, NULL, &vkDeviceExtensionCount, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPhysicalDevice] Failed to enumerate device extension property count.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     VkExtensionProperties* vkDeviceExtensionProperties = page_malloc(
@@ -595,16 +568,13 @@ int main(void) {
 
     if (NULL == vkDeviceExtensionProperties) {
         LOG_ERROR("[VkPhysicalDevice] Failed to allocate device extension properties.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
+        goto cleanup_instance;
     }
 
     result = vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, NULL, &vkDeviceExtensionCount, vkDeviceExtensionProperties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPhysicalDevice] Failed to enumerate device extension properties.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
@@ -708,9 +678,7 @@ int main(void) {
         LOG_DEBUG("[VkPhysicalDeviceFeatures2] descriptorBufferImageLayoutIgnored=%s", deviceDescriptorBuffer.descriptorBufferImageLayoutIgnored ? "true" : "false");
     } else {
         LOG_ERROR("[VkPhysialDeviceFeatures2] Descriptor buffer is unsupported for the selected GPU.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     if (deviceShaderAtomicFloat.shaderBufferFloat32Atomics) {
@@ -718,9 +686,7 @@ int main(void) {
         LOG_DEBUG("[VkPhysicalDeviceFeatures2] shaderBufferFloat32AtomicAdd=%s", deviceShaderAtomicFloat.shaderBufferFloat32AtomicAdd ? "true" : "false");
     } else {
         LOG_ERROR("[VkPhysialDeviceFeatures2] Atomicity is unsupported for the selected GPU.");
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     if (deviceVulkan12.shaderFloat16) {
@@ -769,9 +735,7 @@ int main(void) {
     result = vkCreateDevice(vkPhysicalDevice, &vkDeviceCreateInfo, &vkAllocationCallback, &vkDevice);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkDevice] Failed to create logical device: %d", result);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_instance;
     }
 
     LOG_INFO("[VkDevice] Created logical device @ %p.", vkDevice);
@@ -792,10 +756,7 @@ int main(void) {
     FILE* shaderFile = fopen(shaderFilePath, "rb");
     if (NULL == shaderFile) {
         LOG_ERROR("[VkShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_device;
     }
 
     fseek(shaderFile, 0, SEEK_END);
@@ -803,10 +764,8 @@ int main(void) {
     rewind(shaderFile);
     if (-1 == shaderFilelength) {
         LOG_ERROR("[VkShaderModule] Failed to inference SPIR-V file size: %s", shaderFilePath);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        fclose(shaderFile);
+        goto cleanup_device;
     }
 
     uint32_t shaderCodeSize = (uint32_t) shaderFilelength;
@@ -819,10 +778,7 @@ int main(void) {
     if (NULL == shaderCode) {
         LOG_ERROR("[VkShaderModule] Failed to allocate %u bytes for SPIR-V shader", shaderCodeSize);
         fclose(shaderFile);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_device;
     }
 
     // Assuming fread null terminates buffer for us
@@ -848,10 +804,7 @@ int main(void) {
     result = vkCreateShaderModule(vkDevice, &vkShaderInfo, &vkAllocationCallback, &vkShaderModule);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkShaderModule] Failed to create shader module from %s (VkResult=%d)", shaderFilePath, result);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_device;
     }
 
     LOG_INFO("[VkShaderModule] Created shader module @ %p.", vkShaderModule);
@@ -890,10 +843,7 @@ int main(void) {
     result = vkCreateDescriptorSetLayout(vkDevice, &descriptorSetLayoutCreateInfo, &vkAllocationCallback, &vkDescriptorSetLayout);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkDescriptorSetLayout] Failed to create the descriptor set layout (VkResult=%d)", result);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_shader_module;
     }
 
     LOG_INFO("[VkDescriptorSetLayout] Created descriptor set layout @ %p.", vkDescriptorSetLayout);
@@ -920,11 +870,7 @@ int main(void) {
 
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPipelineLayout] Failed to create pipeline layout (VkResult=%d).", result);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_descriptor_set_layout;
     }
 
     LOG_INFO("[VkPipelineLayout] Created pipeline layout @ %p.", vkPipelineLayout);
@@ -967,13 +913,7 @@ int main(void) {
 
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkPipeline] Failed to create compute pipeline (VkResult=%d).", result);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pipeline_layout;
     }
 
     LOG_INFO("[VkPipeline] Created compute pipeline @ %p.", vkPipeline);
@@ -996,14 +936,7 @@ int main(void) {
     result = vkCreateBuffer(vkDevice, &inputBufferCreateInfo, &vkAllocationCallback, &inputBuffer);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkBuffer] Failed to create input storage buffer (VkResult=%d).", result);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_pipeline;
     }
 
     LOG_INFO("[VkBuffer] Created input storage buffer @ %p.", inputBuffer);
@@ -1034,15 +967,7 @@ int main(void) {
 
     if (UINT32_MAX == memoryType) {
         LOG_ERROR("[VkMemory] Failed to find a suitable memory type for input buffer.");
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_input_buffer;
     }
 
     VkMemoryAllocateInfo inputAllocInfo = {
@@ -1055,30 +980,13 @@ int main(void) {
     result = vkAllocateMemory(vkDevice, &inputAllocInfo, &vkAllocationCallback, &inputMemory);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMemory] Failed to allocate memory for input buffer (VkResult=%d).", result);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_input_buffer;
     }
 
     result = vkBindBufferMemory(vkDevice, inputBuffer, inputMemory, 0);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMemory] Failed to bind input memory to buffer (VkResult=%d).", result);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_input_memory;
     }
 
     LOG_INFO("[VkMemory] Allocated and bound input buffer to device @ %p.", inputMemory);
@@ -1094,16 +1002,7 @@ int main(void) {
     result = vkMapMemory(vkDevice, inputMemory, 0, 64 * sizeof(float), 0, &mapped);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMapMemory] Failed to map input memory (VkResult=%d).", result);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_input_memory;
     }
 
     lehmer_initialize(LEHMER_SEED);
@@ -1134,16 +1033,7 @@ int main(void) {
     result = vkCreateBuffer(vkDevice, &outputBufferCreateInfo, &vkAllocationCallback, &outputBuffer);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkBuffer] Failed to create output storage buffer (VkResult=%d).", result);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_input_memory;
     }
 
     /** @} */
@@ -1169,17 +1059,7 @@ int main(void) {
 
     if (UINT32_MAX == memoryType) {
         LOG_ERROR("[VkMemory] Failed to find a suitable memory type for output buffer.");
-        vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_output_buffer;
     }
 
     VkMemoryAllocateInfo outputAllocInfo = {
@@ -1192,34 +1072,13 @@ int main(void) {
     result = vkAllocateMemory(vkDevice, &outputAllocInfo, &vkAllocationCallback, &outputMemory);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMemory] Failed to allocate memory for output buffer (VkResult=%d).", result);
-        vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_output_buffer;
     }
 
     result = vkBindBufferMemory(vkDevice, outputBuffer, outputMemory, 0);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMemory] Failed to bind output memory to buffer (VkResult=%d).", result);
-        vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_output_memory;
     }
 
     LOG_INFO("[VkMemory] Allocated and bound output buffer to device @ %p.", outputMemory);
@@ -1250,9 +1109,7 @@ int main(void) {
     result = vkCreateDescriptorPool(vkDevice, &descriptorPoolCreateInfo, &vkAllocationCallback, &vkDescriptorPool);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkDescriptorPool] Failed to create descriptor pool (VkResult=%d)", result);
-        /// @todo Handle error and cleanup
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_output_memory;
     }
 
     LOG_INFO("[VkDescriptorPool] Created descriptor pool @ %p", vkDescriptorPool);
@@ -1275,9 +1132,7 @@ int main(void) {
     result = vkAllocateDescriptorSets(vkDevice, &descriptorSetAllocationInfo, &vkDescriptorSet);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkDescriptorSet] Failed to allocate descriptor set (VkResult=%d)", result);
-        /// @todo Handle error and cleanup
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_descriptor_pool;
     }
 
     LOG_INFO("[VkDescriptorSet] Created descriptor set @ %p", vkDescriptorSet);
@@ -1341,9 +1196,7 @@ int main(void) {
     result = vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, &vkAllocationCallback, &vkCommandPool);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkCommandPool] Failed to create command pool (VkResult=%d).", result);
-        /// @todo Handle error and cleanup
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_descriptor_set;
     }
 
     LOG_INFO("[VkCommandPool] Created command pool @ %p", vkCommandPool);
@@ -1366,9 +1219,7 @@ int main(void) {
     result = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &vkCommandBuffer);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkAllocateCommandBuffers] Failed to allocate command buffer (VkResult=%d).", result);
-        /// @todo Handle error and cleanup
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_command_pool;
     }
 
     LOG_INFO("[VkCommandBuffer] Created command buffer @ %p.", vkCommandBuffer);
@@ -1384,18 +1235,7 @@ int main(void) {
     result = vkMapMemory(vkDevice, outputMemory, 0, sizeof(float), 0, (void**)&out);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkMapMemory] Failed to map output memory.");
-        vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-        vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-        vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-        vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-        vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-        vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-        vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-        vkDestroyDevice(vkDevice, &vkAllocationCallback);
-        vkDestroyInstance(vkInstance, &vkAllocationCallback);
-        page_allocator_free(pager);
-        return EXIT_FAILURE;
+        goto cleanup_command_buffer;
     }
 
     LOG_INFO("[VkMapMemory] Output result: %.6f", (double) *out);
@@ -1404,7 +1244,7 @@ int main(void) {
     /** @} */
 
     /**
-     * @name Clean up
+     * @name Clean up on Success
      * @{
      */
 
@@ -1437,4 +1277,64 @@ int main(void) {
     return EXIT_SUCCESS;
 
     /** {@ */
+
+/**
+ * @name Clean up on Failure
+ * @{
+ */
+
+cleanup_command_buffer:
+    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer);
+
+cleanup_command_pool:
+    vkDestroyCommandPool(vkDevice, vkCommandPool, &vkAllocationCallback);
+
+cleanup_descriptor_set:
+    vkFreeDescriptorSets(vkDevice, vkDescriptorPool, 1, &vkDescriptorSet);
+
+cleanup_descriptor_pool:
+    vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, &vkAllocationCallback);
+
+cleanup_output_memory:
+    vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
+
+cleanup_output_buffer:
+    vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
+
+cleanup_input_memory:
+    vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
+
+cleanup_input_buffer:
+    vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+
+cleanup_pipeline:
+    vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
+
+cleanup_pipeline_layout:
+    vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
+
+cleanup_descriptor_set_layout:
+    vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
+
+cleanup_shader_module:
+    vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
+
+cleanup_device:
+    vkDestroyDevice(vkDevice, &vkAllocationCallback);
+
+cleanup_instance:
+    vkDestroyInstance(vkInstance, &vkAllocationCallback);
+
+cleanup_pager:
+    page_allocator_free(pager);
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug Mode: Exit Failure");
+#else
+    LOG_INFO("[VkCompute] Release Mode: Exit Failure");
+#endif
+
+    return EXIT_FAILURE;
+
+/** @} */
 }
