@@ -1327,6 +1327,55 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Command Pool
+     * @{
+     */
+
+    VkCommandPoolCreateInfo commandPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = vkQueueFamilyIndex,
+    };
+
+    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
+    result = vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, &vkAllocationCallback, &vkCommandPool);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkCommandPool] Failed to create command pool (VkResult=%d).", result);
+        /// @todo Handle error and cleanup
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkCommandPool] Created command pool @ %p", vkCommandPool);
+
+    /** @} */
+
+    /**
+     * @name Command Buffer Allocation
+     * @{
+     */
+
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
+    result = vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, &vkCommandBuffer);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkAllocateCommandBuffers] Failed to allocate command buffer (VkResult=%d).", result);
+        /// @todo Handle error and cleanup
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkCommandBuffer] Created command buffer @ %p.", vkCommandBuffer);
+
+    /** @} */
+
+    /**
      * @name Output Storage Buffer: Download Data
      * @{
      */
@@ -1362,11 +1411,15 @@ int main(void) {
     vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
     vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
 
+    vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer);
+    vkDestroyCommandPool(vkDevice, vkCommandPool, &vkAllocationCallback);
+
     vkFreeDescriptorSets(vkDevice, vkDescriptorPool, 1, &vkDescriptorSet);
     vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, &vkAllocationCallback);
 
     vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
     vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
+
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
     vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
