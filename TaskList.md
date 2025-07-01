@@ -19,17 +19,17 @@ A step-by-step overview for building a minimal headless Vulkan **compute pipelin
 ## 🧱 Resource Allocation
 
 * [x] **Input Buffer**: Write data to a host-visible buffer (`VK_BUFFER_USAGE_STORAGE_BUFFER_BIT`).
-* [ ] **Descriptor Pool**: Create a `VkDescriptorPool` to manage descriptor set allocation.
-* [ ] **Descriptor Set**: Allocate `VkDescriptorSet` and bind buffers using `vkUpdateDescriptorSets`.
+* [x] **Descriptor Pool**: Create a `VkDescriptorPool` to manage descriptor set allocation.
+* [x] **Descriptor Set**: Allocate `VkDescriptorSet` and bind buffers using `vkUpdateDescriptorSets`.
 
 ## 🎮 Command & Execution
 
-* [ ] **Command Pool & Buffer**: Create a `VkCommandPool` and allocate a `VkCommandBuffer`.
-* [ ] **Record Commands**: Begin recording. Bind pipeline and descriptor sets, then call `vkCmdDispatch`.
-* [ ] **Submit & Sync**: Submit the command buffer. Use a `VkFence` to block until execution finishes.
+* [x] **Command Pool & Buffer**: Create a `VkCommandPool` and allocate a `VkCommandBuffer`.
+* [x] **Record Commands**: Begin recording. Bind pipeline and descriptor sets, then call `vkCmdDispatch`.
+* [x] **Submit & Sync**: Submit the command buffer. Use a `VkFence` to block until execution finishes.
 * [x] **Output Buffer**: Read from the output buffer to verify results.
 
 ## 🧹 Cleanup
 
-* [ ] Destroy all Vulkan objects.
+* [x] Destroy all Vulkan objects.
 * [x] Free all allocated memory and resources.
