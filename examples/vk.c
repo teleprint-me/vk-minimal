@@ -919,7 +919,7 @@ int main(void) {
     );
 
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkPipelineLayout] Failed to create pipeline layout.");
+        LOG_ERROR("[VkPipelineLayout] Failed to create pipeline layout (VkResult=%d).", result);
         vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
         vkDestroyDevice(vkDevice, &vkAllocationCallback);
         vkDestroyInstance(vkInstance, &vkAllocationCallback);
@@ -966,7 +966,7 @@ int main(void) {
     );
 
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkPipeline] Failed to create compute pipeline.");
+        LOG_ERROR("[VkPipeline] Failed to create compute pipeline (VkResult=%d).", result);
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
         vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
@@ -995,7 +995,7 @@ int main(void) {
     VkBuffer inputBuffer = VK_NULL_HANDLE;
     result = vkCreateBuffer(vkDevice, &inputBufferCreateInfo, &vkAllocationCallback, &inputBuffer);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkBuffer] Failed to create input storage buffer (VkSuccess=%d).", result);
+        LOG_ERROR("[VkBuffer] Failed to create input storage buffer (VkResult=%d).", result);
         vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
         vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
         vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
@@ -1133,7 +1133,7 @@ int main(void) {
     VkBuffer outputBuffer = VK_NULL_HANDLE;
     result = vkCreateBuffer(vkDevice, &outputBufferCreateInfo, &vkAllocationCallback, &outputBuffer);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkBuffer] Failed to create output storage buffer (VkSuccess=%d).", result);
+        LOG_ERROR("[VkBuffer] Failed to create output storage buffer (VkResult=%d).", result);
         vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
         vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
         vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
@@ -1249,7 +1249,7 @@ int main(void) {
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
     result = vkCreateDescriptorPool(vkDevice, &descriptorPoolCreateInfo, &vkAllocationCallback, &vkDescriptorPool);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkDescriptorPool] Failed to create descriptor pool: %d", result);
+        LOG_ERROR("[VkDescriptorPool] Failed to create descriptor pool (VkResult=%d)", result);
         /// @todo Handle error and cleanup
         page_allocator_free(pager);
         return EXIT_FAILURE;
@@ -1274,7 +1274,7 @@ int main(void) {
     VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
     result = vkAllocateDescriptorSets(vkDevice, &descriptorSetAllocationInfo, &vkDescriptorSet);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkDescriptorSet] Failed to allocate descriptor set: %d", result);
+        LOG_ERROR("[VkDescriptorSet] Failed to allocate descriptor set (VkResult=%d)", result);
         /// @todo Handle error and cleanup
         page_allocator_free(pager);
         return EXIT_FAILURE;
