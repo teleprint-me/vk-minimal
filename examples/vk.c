@@ -1227,6 +1227,49 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Record Command Buffer
+     * @{
+     */
+
+    VkCommandBufferBeginInfo commandBufferBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = 0, // Optional
+        .pInheritanceInfo = NULL, // Only for secondary command buffers
+    };
+
+    result = vkBeginCommandBuffer(vkCommandBuffer, &commandBufferBeginInfo);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[vkBeginCommandBuffer] Failed to begin recording (VkResult=%d)", result);
+        goto cleanup_command_buffer;
+    }
+
+    vkCmdBindPipeline(vkCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, vkPipeline);
+    vkCmdBindDescriptorSets(
+        vkCommandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        vkPipelineLayout,
+        0,
+        1,
+        &vkDescriptorSet,
+        0,
+        NULL
+    );
+
+    // You’re operating on 64 floats (1D), so dispatch with ceil(64 / local_size_x)
+    // If local_size_x = 64 in shader, use 1
+    vkCmdDispatch(vkCommandBuffer, 1, 1, 1);
+
+    result = vkEndCommandBuffer(vkCommandBuffer);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[vkEndCommandBuffer] Failed to record command buffer (VkResult=%d)", result);
+        goto cleanup_command_buffer;
+    }
+
+    LOG_INFO("[VkCommandBuffer] Recorded compute dispatch.");
+
+    /** @} */
+
+    /**
      * @name Output Storage Buffer: Download Data
      * @{
      */
