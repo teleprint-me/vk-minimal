@@ -896,7 +896,7 @@ int main(void) {
 
     VkComputePipelineCreateInfo computePipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+        .flags = 0,
         .stage = pipelineShaderStageCreateInfo,
         .layout = vkPipelineLayout,
     };
