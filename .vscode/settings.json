@@ -59,5 +59,6 @@
     "text_encoding": "c",
     "typeindex": "c",
     "typeinfo": "c"
-  }
+  },
+  "workbench.panel.defaultLocation": "right"
 }
