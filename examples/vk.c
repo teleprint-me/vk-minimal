@@ -1248,18 +1248,14 @@ int main(void) {
      * @{
      */
 
-    vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
-    vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-
     vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer);
     vkDestroyCommandPool(vkDevice, vkCommandPool, &vkAllocationCallback);
-
     vkFreeDescriptorSets(vkDevice, vkDescriptorPool, 1, &vkDescriptorSet);
     vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, &vkAllocationCallback);
-
+    vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
+    vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
     vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
     vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
     vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
@@ -1285,46 +1281,32 @@ int main(void) {
 
 cleanup_command_buffer:
     vkFreeCommandBuffers(vkDevice, vkCommandPool, 1, &vkCommandBuffer);
-
 cleanup_command_pool:
     vkDestroyCommandPool(vkDevice, vkCommandPool, &vkAllocationCallback);
-
 cleanup_descriptor_set:
     vkFreeDescriptorSets(vkDevice, vkDescriptorPool, 1, &vkDescriptorSet);
-
 cleanup_descriptor_pool:
     vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, &vkAllocationCallback);
-
 cleanup_output_memory:
     vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
-
 cleanup_output_buffer:
     vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
-
 cleanup_input_memory:
     vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
-
 cleanup_input_buffer:
     vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
-
 cleanup_pipeline:
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
-
 cleanup_pipeline_layout:
     vkDestroyPipelineLayout(vkDevice, vkPipelineLayout, &vkAllocationCallback);
-
 cleanup_descriptor_set_layout:
     vkDestroyDescriptorSetLayout(vkDevice, vkDescriptorSetLayout, &vkAllocationCallback);
-
 cleanup_shader_module:
     vkDestroyShaderModule(vkDevice, vkShaderModule, &vkAllocationCallback);
-
 cleanup_device:
     vkDestroyDevice(vkDevice, &vkAllocationCallback);
-
 cleanup_instance:
     vkDestroyInstance(vkInstance, &vkAllocationCallback);
-
 cleanup_pager:
     page_allocator_free(pager);
 
