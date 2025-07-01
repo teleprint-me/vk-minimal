@@ -1270,6 +1270,33 @@ int main(void) {
     /** @} */
 
     /**
+     * @name Submit Command Buffer and Wait
+     * @{
+     */
+
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkCommandBuffer,
+    };
+
+    result = vkQueueSubmit(vkQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[vkQueueSubmit] Failed to submit command buffer (VkResult=%d)", result);
+        goto cleanup_command_buffer;
+    }
+
+    result = vkQueueWaitIdle(vkQueue);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[vkQueueWaitIdle] Failed to idle queue after submission (VkResult=%d)", result);
+        goto cleanup_command_buffer;
+    }
+
+    LOG_INFO("[VkQueue] Compute queue submitted and idle.");
+
+    /** @} */
+
+    /**
      * @name Output Storage Buffer: Download Data
      * @{
      */
@@ -1281,7 +1308,7 @@ int main(void) {
         goto cleanup_command_buffer;
     }
 
-    LOG_INFO("[VkMapMemory] Output result: %.6f", (double) *out);
+    LOG_INFO("[VkMapMemory] Output result: %.6f", (double) (*out) / 64);
     vkUnmapMemory(vkDevice, outputMemory);
 
     /** @} */
