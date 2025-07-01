@@ -1222,7 +1222,107 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    LOG_INFO("[VkMemory] Allocated and bound output buffer to device @ %p.", inputMemory);
+    LOG_INFO("[VkMemory] Allocated and bound output buffer to device @ %p.", outputMemory);
+
+    /** @} */
+
+    /**
+     * @name Descriptor Pool
+     * @{
+     */
+
+    VkDescriptorPoolSize descriptorPoolSizes[] = {
+        {
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 2,
+        },
+    };
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .poolSizeCount = 1,
+        .pPoolSizes = descriptorPoolSizes,
+        .maxSets = 1,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+    };
+
+    VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
+    result = vkCreateDescriptorPool(vkDevice, &descriptorPoolCreateInfo, &vkAllocationCallback, &vkDescriptorPool);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkDescriptorPool] Failed to create descriptor pool: %d", result);
+        /// @todo Handle error and cleanup
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkDescriptorPool] Created descriptor pool @ %p", vkDescriptorPool);
+
+    /** @} */
+
+    /**
+     * @name Descriptor Set
+     * @{
+     */
+
+    VkDescriptorSetAllocateInfo descriptorSetAllocationInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = vkDescriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &vkDescriptorSetLayout,
+    };
+
+    VkDescriptorSet vkDescriptorSet = VK_NULL_HANDLE;
+    result = vkAllocateDescriptorSets(vkDevice, &descriptorSetAllocationInfo, &vkDescriptorSet);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkDescriptorSet] Failed to allocate descriptor set: %d", result);
+        /// @todo Handle error and cleanup
+        page_allocator_free(pager);
+        return EXIT_FAILURE;
+    }
+
+    LOG_INFO("[VkDescriptorSet] Created descriptor set @ %p", vkDescriptorSet);
+
+    /** @} */
+
+    /**
+     * @name Bind Buffers to Descriptor Set
+     * @{
+     */
+
+    VkDescriptorBufferInfo inputBufferInfo = {
+        .buffer = inputBuffer,
+        .offset = 0,
+        .range = 64 * sizeof(float),
+    };
+
+    VkDescriptorBufferInfo outputBufferInfo = {
+        .buffer = outputBuffer,
+        .offset = 0,
+        .range = sizeof(float),
+    };
+
+    VkWriteDescriptorSet descriptorWrites[] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = vkDescriptorSet,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .pBufferInfo = &inputBufferInfo,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = vkDescriptorSet,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .pBufferInfo = &outputBufferInfo,
+        },
+    };
+
+    vkUpdateDescriptorSets(vkDevice, 2, descriptorWrites, 0, NULL);
+
+    LOG_INFO("[VkWriteDescriptorSets] Successfully updated descriptor sets.");
 
     /** @} */
 
@@ -1261,6 +1361,10 @@ int main(void) {
 
     vkFreeMemory(vkDevice, outputMemory, &vkAllocationCallback);
     vkDestroyBuffer(vkDevice, outputBuffer, &vkAllocationCallback);
+
+    vkFreeDescriptorSets(vkDevice, vkDescriptorPool, 1, &vkDescriptorSet);
+    vkDestroyDescriptorPool(vkDevice, vkDescriptorPool, &vkAllocationCallback);
+
     vkFreeMemory(vkDevice, inputMemory, &vkAllocationCallback);
     vkDestroyBuffer(vkDevice, inputBuffer, &vkAllocationCallback);
     vkDestroyPipeline(vkDevice, vkPipeline, &vkAllocationCallback);
