@@ -5,10 +5,47 @@
 #include "core/logger.h"
 #include "utf8/raw.h"
 #include "vk/allocator.h"
-#include "vk/instance.h"
 
 #include <stdlib.h>
 #include <stdio.h>
+
+typedef struct VkcInstance {
+    PageAllocator* pager;
+    VkInstance data;
+    VkAllocationCallbacks allocator;
+} VkcInstance;
+
+// VkInstance vkc_instance_init(PageAllocator* pager, VkAllocationCallbacks* allocator) {
+
+// }
+
+VkcInstance* vkc_instance_create(size_t initial_size) {
+    PageAllocator* pager = page_allocator_create(initial_size);
+    if (NULL == pager) {
+        LOG_ERROR("[VkcInstance] Failed to create allocator with %zu initial size.", initial_size);
+        return NULL;
+    }
+
+    VkcInstance* instance = page_malloc(pager, sizeof(VkcInstance), alignof(VkcInstance));
+    if (NULL == instance) {
+        LOG_ERROR("[VkcInstance] Failed to create VkC instance with allocator @ %p.", pager);
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    *instance = (VkcInstance) {
+        .pager = pager,
+        .allocator = vkc_page_callbacks(pager),
+    };
+
+    return instance;
+}
+
+void vkc_instance_destroy(VkcInstance* instance) {
+    if (NULL == instance || NULL == instance->pager) return;
+    PageAllocator* pager = instance->pager;
+    page_allocator_free(pager);
+}
 
 int main(void) {
     /**
@@ -31,6 +68,11 @@ int main(void) {
      */
 
     PageAllocator* pager = page_allocator_create(1024);
+    if (NULL == pager) {
+        LOG_INFO("[PageAllocator] Failed to create allocator with %zu initial size.", 1024);
+        return EXIT_FAILURE;
+    }
+
     VkAllocationCallbacks vkAllocationCallback = vkc_page_callbacks(pager);
 
     /** @} */
