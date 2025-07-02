@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/**
+ * @name VkC Physical Device List
+ * @{
+ */
+
 typedef struct VkcPhysicalDeviceList {
     PageAllocator* pager;
     VkPhysicalDevice* devices;
@@ -77,6 +82,122 @@ void vkc_physical_device_list_free(VkcPhysicalDeviceList* list) {
         page_allocator_free(list->pager);
     }
 }
+
+/** @} */
+
+/**
+ * @name Physical Device Selection
+ * @{
+ */
+
+typedef struct VkcQueue {
+    VkQueue object;
+    VkQueueFamilyProperties family_properties;
+    float* priorities;
+    uint32_t family_index;
+    uint32_t index;
+    uint32_t count;
+} VkcQueue;
+
+typedef struct VkcPhysicalDevice {
+    VkPhysicalDevice object;
+    VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceFeatures features;
+    VkPhysicalDeviceType type;
+} VkcPhysicalDevice;
+
+typedef struct VkcDevice {
+    PageAllocator* pager;
+    VkcQueue* queue;
+    VkcPhysicalDevice* physical;
+    VkDevice object;
+    VkAllocationCallbacks allocator;
+} VkcDevice;
+
+VkQueueFamilyProperties* vkc_physical_device_queue_families_create(
+    PageAllocator* pager, VkPhysicalDevice device, uint32_t* out_count
+) {
+    *out_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, out_count, NULL);
+
+    VkQueueFamilyProperties* family_properties = page_malloc(
+        pager,
+        (*out_count) * sizeof(VkQueueFamilyProperties),
+        alignof(VkQueueFamilyProperties)
+    );
+
+    if (!family_properties) {
+        LOG_ERROR("[VkQueueFamilyProperties] Failed to allocate memory for %u properties.", *out_count);
+        return NULL;
+    }
+
+    vkGetPhysicalDeviceQueueFamilyProperties(device, out_count, family_properties);
+    return family_properties;
+}
+
+void vkc_physical_device_queue_families_free(PageAllocator* pager, VkQueueFamilyProperties* properties) {
+    if (pager && properties) {
+        page_free(pager, properties);
+    }
+}
+
+bool vkc_physical_device_select(VkcDevice* device, VkcPhysicalDeviceList* list) {
+    static const VkPhysicalDeviceType type[] = {
+        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_CPU,
+    };
+
+    static const uint32_t type_count = sizeof(type) / sizeof(VkPhysicalDeviceType);
+
+    for (uint32_t i = 0; i < type_count; i++) {
+        for (uint32_t j = 0; j < list->count; j++) {
+            VkPhysicalDevice candidate = list->devices[j];
+            VkPhysicalDeviceProperties properties = {0};
+            vkGetPhysicalDeviceProperties(candidate, &properties);
+
+            uint32_t family_count = 0;
+            VkQueueFamilyProperties* family_properties = vkc_physical_device_queue_families_create(
+                device->pager, candidate, &family_count);
+            if (!family_properties) {
+                return false;
+            }
+
+    #if defined(DEBUG) && (1 == DEBUG)
+            LOG_DEBUG("[VkcPhysicalDevice] Candidate %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
+    #endif
+
+            bool selected = false;
+            for (uint32_t k = 0; k < family_count; k++) {
+                if (family_properties[k].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    if (type[i] == properties.deviceType) {
+                        device->queue->family_index = k;
+                        device->queue->family_properties = family_properties[k];
+                        device->physical->object = candidate;
+                        device->physical->properties = properties;
+                        device->physical->type = type[i];
+                        vkGetPhysicalDeviceFeatures(candidate, &device->physical->features);
+                        selected = true;
+                        break;
+                    }
+                }
+            }
+
+            vkc_physical_device_queue_families_free(device->pager, family_properties);
+            if (selected) {
+    #if defined(DEBUG) && (1 == DEBUG)
+                LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
+    #endif
+                return true;
+            }
+        }
+    }
+
+    LOG_ERROR("No suitable compute-capable discrete GPU found.");
+    return false;
+}
+
+/** @} */
 
 int main(void) {
     /**
