@@ -117,13 +117,19 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
         for (uint32_t j = 0; j < name_count; j++) {
             if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
                 match->count++;
-                break;
             }
         }
     }
 
-    if (0 == match->count) {
-        LOG_ERROR("[VkcInstanceLayerMatch] No matching instance layer names found.");
+    if (match->count == 0) {
+        LOG_ERROR("[VkcInstanceLayerMatch] No requested layers were available:");
+        for (uint32_t i = 0; i < name_count; i++) {
+            LOG_ERROR("  - %s", names[i]);
+        }
+        LOG_INFO("Available instance layers:");
+        for (uint32_t i = 0; i < layer->count; i++) {
+            LOG_INFO("  - %s", layer->properties[i].layerName);
+        }
         page_allocator_free(pager);
         return NULL;
     }
@@ -149,7 +155,6 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 
                 page_add(pager, copy, utf8_raw_byte_count(copy), alignof(char));
                 match->names[k++] = copy;
-                break;
             }
         }
     }
