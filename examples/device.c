@@ -4,28 +4,114 @@
 
 #include "core/logger.h"
 #include "vk/instance.h"
-#include "vk/device.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 int main(void) {
     /**
-     * Create a Vulkan Instance
+     * @name Debug Environment
+     * @brief Enables verbose logging when VKC_DEBUG=1 is set.
+     * @{
      */
 
-    VkcInstance* instance = vkc_instance_create(1024);
-    if (!instance) {
-        LOG_ERROR("Failed to create Vulkan instance!");
-        return EXIT_FAILURE;
-    }
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug mode.");
+#else
+    LOG_INFO("[VkCompute] Release mode.");
+#endif
+
+    /** @} */
 
     /**
-     * Create a Vulkan Device
+     * @name Instance Layer Properties
+     * @{
      */
 
-    VkcDevice* device = vkc_device_create(instance, 1024);
+    static const char* const validation_layers[] = {
+        "VK_LAYER_KHRONOS_validation",
+    };
 
-    vkc_device_destroy(device);
-    vkc_instance_destroy(instance);
+    VkcInstanceLayer* layer = vkc_instance_layer_create();
+    VkcInstanceLayerMatch* layer_match = vkc_instance_layer_match_create(
+        layer, validation_layers, 1
+    );
+
+    /** @} */
+
+    /**
+     * @name Instance Extension Properties
+     * @{
+     */
+
+    static const char* const extension_names[] = {
+        "VK_KHR_device_group_creation",
+        "VK_KHR_external_fence_capabilities",
+        "VK_KHR_external_memory_capabilities",
+        "VK_KHR_external_semaphore_capabilities",
+        "VK_KHR_get_physical_device_properties2",
+        "VK_EXT_debug_utils",
+    };
+
+    VkcInstanceExtension* extension = vkc_instance_extension_create();
+    VkcInstanceExtensionMatch* extension_match = vkc_instance_extension_match_create(
+        extension, extension_names, 6
+    );
+    
+    /** @} */
+
+    /**
+     * @name Vulkan Instance
+     * @{
+     */
+
+    VkcInstance* instance = vkc_instance_create(layer_match, extension_match);
+    if (!instance) {
+        goto cleanup_instance;
+    }
+
+    /** @} */
+
+
+    /**
+     * @name Clean up on Success
+     * @{
+     */
+
+    vkc_instance_extension_match_free(extension_match);
+    vkc_instance_extension_free(extension);
+    vkc_instance_layer_match_free(layer_match);
+    vkc_instance_layer_free(layer);
+    vkc_instance_free(instance);
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug Mode: Exit Success");
+#else
+    LOG_INFO("[VkCompute] Release Mode: Exit Success");
+#endif
+
     return EXIT_SUCCESS;
+
+    /** {@ */
+
+    /**
+     * @name Clean up on Failure
+     * @{
+     */
+
+cleanup_instance:
+    vkc_instance_extension_match_free(extension_match);
+    vkc_instance_extension_free(extension);
+    vkc_instance_layer_match_free(layer_match);
+    vkc_instance_layer_free(layer);
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkCompute] Debug Mode: Exit Failure");
+#else
+    LOG_INFO("[VkCompute] Release Mode: Exit Failure");
+#endif
+
+    return EXIT_FAILURE;
+
+    /** @} */
 }
