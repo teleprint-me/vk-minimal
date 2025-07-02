@@ -14,12 +14,6 @@
  * @{
  */
 
-typedef struct VkcInstanceLayer {
-    PageAllocator* pager;
-    VkLayerProperties* properties;
-    uint32_t count;
-} VkcInstanceLayer;
-
 VkcInstanceLayer* vkc_instance_layer_create(void) {
     // Create the page allocator.
     PageAllocator* pager = page_allocator_create(8);
@@ -29,8 +23,7 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
     }
 
     // Allocate the layer struct.
-    VkcInstanceLayer* layer = page_malloc(
-        pager, sizeof(VkcInstanceLayer), alignof(VkcInstanceLayer));
+    VkcInstanceLayer* layer = page_malloc(pager, sizeof(*layer), alignof(*layer));
     if (!layer) {
         page_allocator_free(pager);
         LOG_ERROR("[VkcInstanceLayer] Failed to allocate instance layer structure.");
@@ -95,67 +88,79 @@ void vkc_instance_layer_free(VkcInstanceLayer* layer) {
  * @{
  */
 
-typedef struct VkcInstanceLayerMatch {
-    PageAllocator* pager;
-    char** names;
-    uint32_t count;
-} VkcInstanceLayerMatch;
-
 VkcInstanceLayerMatch* vkc_instance_layer_match_create(
-    VkcInstanceLayer* layer, char const** names, size_t name_count
+    VkcInstanceLayer* layer, const char* const* names, const uint32_t name_count
 ) {
-    if (!layer || !names || 0 == name_count) return NULL;
+    if (!layer || !names || name_count == 0) return NULL;
 
     PageAllocator* pager = page_allocator_create(8);
     if (!pager) {
-        LOG_ERROR("[VkcInstanceLayerName] Failed to create allocator.");
+        LOG_ERROR("[VkcInstanceLayerMatch] Failed to create allocator.");
         return NULL;
     }
 
-    VkcInstanceLayerMatch* match = page_malloc(
-        pager, sizeof(VkcInstanceLayerMatch), alignof(VkcInstanceLayerMatch)); 
+    VkcInstanceLayerMatch* match = page_malloc(pager, sizeof(*match), alignof(*match)); 
     if (!match) {
-        LOG_ERROR("[VkcInstanceLayerName] Failed to create layer result.");
+        LOG_ERROR("[VkcInstanceLayerMatch] Failed to allocate result.");
         page_allocator_free(pager);
         return NULL;
     }
 
-    *match = (VkcInstanceLayerMatch) {
+    *match = (VkcInstanceLayerMatch){
         .pager = pager,
         .names = NULL,
         .count = 0,
     };
 
+    // First pass: count matching layers
     for (uint32_t i = 0; i < layer->count; i++) {
         for (uint32_t j = 0; j < name_count; j++) {
             if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
                 match->count++;
+                break;
             }
         }
     }
 
     if (0 == match->count) {
-        LOG_ERROR("[VkcInstanceLayerName] Failed to match instance layer properties.");
+        LOG_ERROR("[VkcInstanceLayerMatch] No matching instance layer names found.");
         page_allocator_free(pager);
         return NULL;
     }
 
     match->names = page_malloc(pager, match->count * sizeof(char*), alignof(char*));
+    if (!match->names) {
+        LOG_ERROR("[VkcInstanceLayerMatch] Failed to allocate name pointer array.");
+        page_allocator_free(pager);
+        return NULL;
+    }
 
-    for (uint32_t i = 0; i < layer->count; ++i) {
-        for (uint32_t j = 0; j < (uint32_t) name_count; j++) {
-            if (0 == utf8_raw_compare(names[i], layer->properties[i].layerName)) {
-                int64_t byte_count = utf8_raw_byte_count(names[i]);
-                char* name = utf8_raw_copy_n(names[i], byte_count);
-                if (!name) {
+    // Second pass: copy the matching names
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < layer->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
+                char* copy = utf8_raw_copy(layer->properties[i].layerName);
+                if (!copy) {
+                    LOG_ERROR("[VkcInstanceLayerMatch] Failed to copy name.");
                     page_allocator_free(pager);
                     return NULL;
                 }
-                match->names = name;
+
+                page_add(pager, copy, utf8_raw_byte_count(copy), alignof(char));
+                match->names[k++] = copy;
+                break;
             }
         }
-
     }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log the results to standard output
+    LOG_DEBUG("[VkcInstanceLayerMatch] Matched %u instance layer properties.", match->count);
+    for (uint32_t i = 0; i < match->count; i++) {
+        LOG_DEBUG("[VkcInstanceLayerMatch] i=%u, name=%s", i, match->names[i]);
+    }
+#endif
 
     return match;
 }

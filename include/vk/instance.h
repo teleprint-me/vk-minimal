@@ -21,54 +21,32 @@
 extern "C" {
 #endif
 
-/**
- * @brief Opaque wrapper around a Vulkan instance and its allocator state.
- *
- * This structure encapsulates:
- * - A tracked hash map of host allocations (`pager`)
- * - The actual Vulkan instance object (`object`)
- * - The active allocation callbacks (`allocator`)
- * - Application and instance creation metadata
- *
- * Users typically interact only with `vkc_instance_create()` and `vkc_instance_destroy()`.
- * The struct contents are exposed for introspection, but should not be modified directly.
- */
+typedef struct VkcInstanceLayer {
+    PageAllocator* pager;
+    VkLayerProperties* properties;
+    uint32_t count;
+} VkcInstanceLayer;
+
+typedef struct VkcInstanceLayerMatch {
+    PageAllocator* pager;
+    char** names;
+    uint32_t count;
+} VkcInstanceLayerMatch;
+
 typedef struct VkcInstance {
     PageAllocator* pager; /**< Internal allocation map (address → metadata). */
     VkInstance object; /**< Vulkan instance handle. */
     VkAllocationCallbacks allocator; /**< Vulkan allocator callbacks for tracked memory. */
-    VkApplicationInfo app_info; /**< Application-level metadata used during creation. */
-    VkInstanceCreateInfo create_info; /**< VkInstanceCreateInfo used to initialize the instance. */
-    uint32_t version; /**< Vulkan API version negotiated at runtime. */
 } VkcInstance;
 
-/**
- * @brief Creates a Vulkan instance with internal memory tracking.
- *
- * This function:
- * - Creates a new hash map for allocation tracking
- * - Registers the custom allocator with Vulkan
- * - Initializes application metadata and extensions
- * - Creates the Vulkan instance
- *
- * @param page_size Initial capacity of the allocation map.
- * @return A pointer to a fully initialized `VkcInstance`, or NULL on failure.
- *
- * @note On success, the returned instance must be destroyed via `vkc_instance_destroy()`.
- * @note The hash map is owned internally and freed automatically.
- */
-VkcInstance* vkc_instance_create(size_t page_size);
+VkcInstanceLayer* vkc_instance_layer_create(void);
+void vkc_instance_layer_free(VkcInstanceLayer* layer);
 
-/**
- * @brief Destroys the Vulkan instance and releases all associated resources.
- *
- * This function:
- * - Calls `vkDestroyInstance()` with the internal allocator
- * - Frees all tracked memory metadata in the allocation map
- * - Releases internal storage used by the `VkcInstance` object
- *
- * @param instance Pointer to a `VkcInstance` created with `vkc_instance_create()`.
- */
+VkcInstanceLayerMatch* vkc_instance_layer_match_create(
+    VkcInstanceLayer* layer, const char* const* names, const uint32_t name_count);
+void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match);
+
+VkcInstance* vkc_instance_create(size_t page_size);
 void vkc_instance_destroy(VkcInstance* instance);
 
 #ifdef __cplusplus
