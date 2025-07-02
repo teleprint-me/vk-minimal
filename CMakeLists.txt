@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project("vk-minimal" LANGUAGES C)
+project("vkc" LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 
@@ -33,16 +33,14 @@ endif()
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 # Add library
-add_library(vk-minimal SHARED
-    "src/vk/validation.c"
-    "src/vk/extension.c"
+add_library(vkc SHARED
     "src/vk/allocator.c"
     "src/vk/instance.c"
-    "src/vk/device.c"
+    # "src/vk/device.c"
     "src/vk/shader.c"
 )
-target_include_directories(vk-minimal PUBLIC include dsa/include)
-target_link_libraries("vk-minimal" PUBLIC m rt pthread vulkan dsa)
+target_include_directories("vkc" PUBLIC include dsa/include)
+target_link_libraries("vkc" PUBLIC m rt pthread vulkan dsa)
 
 enable_testing()
 add_subdirectory(dsa)
