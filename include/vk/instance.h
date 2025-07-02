@@ -21,11 +21,26 @@
 extern "C" {
 #endif
 
+/**
+ * @name VkC Instance Layer Properties
+ * @{
+ */
+
 typedef struct VkcInstanceLayer {
     PageAllocator* pager;
     VkLayerProperties* properties;
     uint32_t count;
 } VkcInstanceLayer;
+
+VkcInstanceLayer* vkc_instance_layer_create(void);
+void vkc_instance_layer_free(VkcInstanceLayer* layer);
+
+/** @} */
+
+/**
+ * @name VkC Instance Layer Property Matches
+ * @{
+ */
 
 typedef struct VkcInstanceLayerMatch {
     PageAllocator* pager;
@@ -33,11 +48,32 @@ typedef struct VkcInstanceLayerMatch {
     uint32_t count;
 } VkcInstanceLayerMatch;
 
+VkcInstanceLayerMatch* vkc_instance_layer_match_create(
+    VkcInstanceLayer* layer, const char* const* names, const uint32_t name_count);
+void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match);
+
+/** @} */
+
+/**
+ * @name VkC Instance Extension Properties
+ * @{
+ */
+
 typedef struct VkcInstanceExtension {
     PageAllocator* pager;
     VkExtensionProperties* properties;
     uint32_t count;
 } VkcInstanceExtension;
+
+VkcInstanceExtension* vkc_instance_extension_create(void);
+void vkc_instance_extension_free(VkcInstanceExtension* extension);
+
+/** @} */
+
+/**
+ * @name VkC Instance Extension Property Matches
+ * @{
+ */
 
 typedef struct VkcInstanceExtensionMatch {
     PageAllocator* pager;
@@ -45,18 +81,18 @@ typedef struct VkcInstanceExtensionMatch {
     uint32_t count;
 } VkcInstanceExtensionMatch;
 
+VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
+    VkcInstanceExtension* extension, const char* const* names, const uint32_t name_count
+);
+void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match);
+
+/** @} */
+
 typedef struct VkcInstance {
     PageAllocator* pager; /**< Internal allocation map (address → metadata). */
     VkInstance object; /**< Vulkan instance handle. */
     VkAllocationCallbacks allocator; /**< Vulkan allocator callbacks for tracked memory. */
 } VkcInstance;
-
-VkcInstanceLayer* vkc_instance_layer_create(void);
-void vkc_instance_layer_free(VkcInstanceLayer* layer);
-
-VkcInstanceLayerMatch* vkc_instance_layer_match_create(
-    VkcInstanceLayer* layer, const char* const* names, const uint32_t name_count);
-void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match);
 
 VkcInstance* vkc_instance_create(size_t page_size);
 void vkc_instance_destroy(VkcInstance* instance);
