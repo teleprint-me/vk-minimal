@@ -752,7 +752,7 @@ int main(void) {
      * @{
      */
 
-    const char* shaderFilePath = "build/shaders/mean.spv";
+    const char* shaderFilePath = "build/shaders/atomic_sum.spv";
     FILE* shaderFile = fopen(shaderFilePath, "rb");
     if (NULL == shaderFile) {
         LOG_ERROR("[VkShaderModule] Failed to open SPIR-V file: %s", shaderFilePath);

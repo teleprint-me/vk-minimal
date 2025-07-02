@@ -1,6 +1,6 @@
 /** 
- * @file shaders/mean.comp
- * @brief Calculate the mean of a buffer of floats.
+ * @file shaders/atomic_sum.comp
+ * @brief Calculate the atomic sum of a buffer of floats.
  */
 
 #version 460
