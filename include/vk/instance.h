@@ -82,8 +82,7 @@ typedef struct VkcInstanceExtensionMatch {
 } VkcInstanceExtensionMatch;
 
 VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
-    VkcInstanceExtension* extension, const char* const* names, const uint32_t name_count
-);
+    VkcInstanceExtension* extension, const char* const* names, const uint32_t name_count);
 void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match);
 
 /** @} */
@@ -94,8 +93,9 @@ typedef struct VkcInstance {
     VkAllocationCallbacks allocator; /**< Vulkan allocator callbacks for tracked memory. */
 } VkcInstance;
 
-VkcInstance* vkc_instance_create(size_t page_size);
-void vkc_instance_destroy(VkcInstance* instance);
+VkcInstance* vkc_instance_create(
+    VkcInstanceLayerMatch* layer_match, VkcInstanceExtensionMatch* extension_match);
+void vkc_instance_free(VkcInstance* instance);
 
 #ifdef __cplusplus
 }
