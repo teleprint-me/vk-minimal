@@ -387,12 +387,12 @@ VkcInstance* vkc_instance_create(
         .pApplicationInfo = &app_info,
     };
 
-    if (layer_match) {
+    if (layer_match && layer_match->names) {
         create_info.enabledLayerCount = layer_match->count;
         create_info.ppEnabledLayerNames = (const char* const*) layer_match->names;
     }
 
-    if (extension_match) {
+    if (extension_match && extension_match->names) {
         create_info.enabledExtensionCount = extension_match->count;
         create_info.ppEnabledExtensionNames = (const char* const*) extension_match->names;
     }
