@@ -58,7 +58,10 @@
     "*.inc": "c",
     "text_encoding": "c",
     "typeindex": "c",
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "bitset": "c",
+    "flat_map": "c",
+    "format": "c"
   },
   "workbench.panel.defaultLocation": "right"
 }
