@@ -7,6 +7,7 @@
 #include "core/memory.h"
 #include "core/logger.h"
 #include "utf8/raw.h"
+#include "vk/allocator.h"
 #include "vk/instance.h"
 
 /**
@@ -328,6 +329,113 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match) {
     if (match && match->pager) {
         page_allocator_free(match->pager);
+    }
+}
+
+/** @} */
+
+/**
+ * @name VkC Instance
+ * @{
+ */
+
+VkcInstance* vkc_instance_create(
+    VkcInstanceLayerMatch* layer_match,
+    VkcInstanceExtensionMatch* extension_match
+) {
+    uint32_t version;
+    VkResult result = vkEnumerateInstanceVersion(&version);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkInstance] Failed to enumerate instance API version (VkResult=%d).", result);
+        return NULL;
+    }
+    
+    VkApplicationInfo app_info = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "vkc",
+        .applicationVersion = version,
+        .pEngineName = "vkc engine",
+        .engineVersion = version,
+        .apiVersion = version,
+    };
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkcInstance] Name: %s", app_info.pApplicationName);
+    LOG_DEBUG(
+        "[VkcInstance] Version: %u.%u.%u",
+        VK_VERSION_MAJOR(app_info.applicationVersion),
+        VK_VERSION_MINOR(app_info.applicationVersion),
+        VK_VERSION_PATCH(app_info.applicationVersion)
+    );
+    LOG_DEBUG("[VkcInstance] Engine Name: %s", app_info.pEngineName);
+    LOG_DEBUG(
+        "[VkcInstance] Engine Version: %u.%u.%u",
+        VK_VERSION_MAJOR(app_info.engineVersion),
+        VK_VERSION_MINOR(app_info.engineVersion),
+        VK_VERSION_PATCH(app_info.engineVersion)
+    );
+    LOG_DEBUG(
+        "[VkcInstance] API Version: %u.%u.%u",
+        VK_API_VERSION_MAJOR(app_info.apiVersion),
+        VK_API_VERSION_MINOR(app_info.apiVersion),
+        VK_API_VERSION_PATCH(app_info.apiVersion)
+    );
+#endif
+
+    VkInstanceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pApplicationInfo = &app_info,
+    };
+
+    if (layer_match) {
+        create_info.enabledLayerCount = layer_match->count;
+        create_info.ppEnabledLayerNames = (const char* const*) layer_match->names;
+    }
+
+    if (extension_match) {
+        create_info.enabledExtensionCount = extension_match->count;
+        create_info.ppEnabledExtensionNames = (const char* const*) extension_match->names;
+    }
+
+    PageAllocator* pager = page_allocator_create(8);
+    if (!pager) {
+        LOG_ERROR("[VkcInstance] Failed to create page allocator.");
+        return NULL;
+    }
+
+    VkcInstance* instance = page_malloc(pager, sizeof(*instance), alignof(*instance));
+    if (!instance) {
+        LOG_ERROR("[VkcInstance] Failed to allocate instance wrapper.");
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    *instance = (VkcInstance){
+        .pager = pager,
+        .object = VK_NULL_HANDLE,
+        .allocator = vkc_page_callbacks(pager),
+    };
+
+    result = vkCreateInstance(&create_info, &instance->allocator, &instance->object);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcInstance] Failed to create instance object (VkResult=%d)", result);
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkcInstance] Successfully created Vulkan instance @ %p.", (void*)instance->object);
+#endif
+
+    return instance;
+}
+
+void vkc_instance_free(VkcInstance* instance) {
+    if (instance && instance->pager) {
+        if (instance->object) {
+            vkDestroyInstance(instance->object, &instance->allocator);
+        }
+        page_allocator_free(instance->pager);
     }
 }
 
