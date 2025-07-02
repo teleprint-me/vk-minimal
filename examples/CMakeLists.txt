@@ -1,7 +1,7 @@
 set(EXAMPLES
     "instance"
-    "device"
-    "shader"
+    # "device"
+    # "shader"
     "pt" # POSIX Threads
     "vk" # Vulkan
 )
