@@ -33,6 +33,18 @@ typedef struct VkcInstanceLayerMatch {
     uint32_t count;
 } VkcInstanceLayerMatch;
 
+typedef struct VkcInstanceExtension {
+    PageAllocator* pager;
+    VkExtensionProperties* properties;
+    uint32_t count;
+} VkcInstanceExtension;
+
+typedef struct VkcInstanceExtensionMatch {
+    PageAllocator* pager;
+    char** names;
+    uint32_t count;
+} VkcInstanceExtensionMatch;
+
 typedef struct VkcInstance {
     PageAllocator* pager; /**< Internal allocation map (address → metadata). */
     VkInstance object; /**< Vulkan instance handle. */

@@ -10,19 +10,17 @@
 #include "vk/instance.h"
 
 /**
- * @name VkC Instance Layer
+ * @name VkC Instance Layer Properties
  * @{
  */
 
 VkcInstanceLayer* vkc_instance_layer_create(void) {
-    // Create the page allocator.
     PageAllocator* pager = page_allocator_create(8);
     if (!pager) {
         LOG_ERROR("[VkcInstanceLayer] Failed to create allocator.");
         return NULL;
     }
 
-    // Allocate the layer struct.
     VkcInstanceLayer* layer = page_malloc(pager, sizeof(*layer), alignof(*layer));
     if (!layer) {
         page_allocator_free(pager);
@@ -36,7 +34,6 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
         .count = 0,
     };
 
-    // First call to get the layer count.
     VkResult result = vkEnumerateInstanceLayerProperties(&layer->count, NULL);
     if (VK_SUCCESS != result || 0 == layer->count) {
         LOG_ERROR("[VkcInstanceLayer] Failed to enumerate layer count (VkResult: %d).", result);
@@ -44,7 +41,6 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
         return NULL;
     }
 
-    // Allocate space for properties.
     layer->properties = page_malloc(
         pager, layer->count * sizeof(VkLayerProperties), alignof(VkLayerProperties));
     if (!layer->properties) {
@@ -53,7 +49,6 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
         return NULL;
     }
 
-    // Second call to fill the properties.
     result = vkEnumerateInstanceLayerProperties(&layer->count, layer->properties);
     if (VK_SUCCESS != result) {
         LOG_ERROR(
@@ -63,7 +58,6 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
-    // Log the results to standard output
     LOG_DEBUG("[VkcInstanceLayer] Found %u instance layer properties.", layer->count);
     for (uint32_t i = 0; i < layer->count; i++) {
         LOG_DEBUG("[VkcInstanceLayer] i=%u, name=%s, description=%s", 
@@ -84,7 +78,7 @@ void vkc_instance_layer_free(VkcInstanceLayer* layer) {
 /** @} */
 
 /**
- * @name VkC Instance Layer Match
+ * @name VkC Instance Layer Property Matches
  * @{
  */
 
@@ -173,6 +167,72 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
     if (match && match->pager) {
         page_allocator_free(match->pager);
+    }
+}
+
+/** @} */
+
+/**
+ * @name VkC Instance Extension Properties
+ * @{
+ */
+
+VkcInstanceExtension* vkc_instance_extension_create(void) {
+    PageAllocator* pager = page_allocator_create(8);
+    if (!pager) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcInstanceExtension* ext = page_malloc(pager, sizeof(*ext), alignof(*ext));
+    if (!ext) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to allocate instance extension structure.");
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    *ext = (VkcInstanceExtension){
+        .pager = pager,
+        .properties = NULL,
+        .count = 0,
+    };
+
+    VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, NULL);
+    if (VK_SUCCESS != result || 0 == ext->count) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to enumerate extension count (VkResult: %d).", result);
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    ext->properties = page_malloc(
+        pager, ext->count * sizeof(VkExtensionProperties), alignof(VkExtensionProperties));
+    if (!ext->properties) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to allocate %u extension properties.", ext->count);
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+    result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, ext->properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to populate extension properties (VkResult: %d).", result);
+        page_allocator_free(pager);
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkcInstanceExtension] Found %u instance extension properties.", ext->count);
+    for (uint32_t i = 0; i < ext->count; i++) {
+        LOG_DEBUG("[VkcInstanceExtension] i=%u, name=%s, version=%u",
+            i, ext->properties[i].extensionName, ext->properties[i].specVersion);
+    }
+#endif
+
+    return ext;
+}
+
+void vkc_instance_extension_free(VkcInstanceExtension* ext) {
+    if (ext && ext->pager) {
+        page_allocator_free(ext->pager);
     }
 }
 
