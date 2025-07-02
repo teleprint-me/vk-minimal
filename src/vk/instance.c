@@ -16,21 +16,21 @@
  */
 
 VkcInstanceLayer* vkc_instance_layer_create(void) {
-    PageAllocator* pager = page_allocator_create(8);
-    if (!pager) {
+    PageAllocator* allocator = page_allocator_create(8);
+    if (!allocator) {
         LOG_ERROR("[VkcInstanceLayer] Failed to create allocator.");
         return NULL;
     }
 
-    VkcInstanceLayer* layer = page_malloc(pager, sizeof(*layer), alignof(*layer));
+    VkcInstanceLayer* layer = page_malloc(allocator, sizeof(*layer), alignof(*layer));
     if (!layer) {
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         LOG_ERROR("[VkcInstanceLayer] Failed to allocate instance layer structure.");
         return NULL;
     }
 
     *layer = (VkcInstanceLayer){
-        .pager = pager,
+        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
@@ -38,15 +38,15 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
     VkResult result = vkEnumerateInstanceLayerProperties(&layer->count, NULL);
     if (VK_SUCCESS != result || 0 == layer->count) {
         LOG_ERROR("[VkcInstanceLayer] Failed to enumerate layer count (VkResult: %d).", result);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     layer->properties = page_malloc(
-        pager, layer->count * sizeof(VkLayerProperties), alignof(VkLayerProperties));
+        allocator, layer->count * sizeof(VkLayerProperties), alignof(VkLayerProperties));
     if (!layer->properties) {
         LOG_ERROR("[VkcInstanceLayer] Failed to allocate %u layer properties.", layer->count);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -54,7 +54,7 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
     if (VK_SUCCESS != result) {
         LOG_ERROR(
             "[VkcInstanceLayer] Failed to populate layer properties (VkResult: %d).", result);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -71,8 +71,8 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
 }
 
 void vkc_instance_layer_free(VkcInstanceLayer* layer) {
-    if (layer && layer->pager) {
-        page_allocator_free(layer->pager);
+    if (layer && layer->allocator) {
+        page_allocator_free(layer->allocator);
     }
 }
 
@@ -88,21 +88,21 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 ) {
     if (!layer || !names || name_count == 0) return NULL;
 
-    PageAllocator* pager = page_allocator_create(8);
-    if (!pager) {
+    PageAllocator* allocator = page_allocator_create(8);
+    if (!allocator) {
         LOG_ERROR("[VkcInstanceLayerMatch] Failed to create allocator.");
         return NULL;
     }
 
-    VkcInstanceLayerMatch* match = page_malloc(pager, sizeof(*match), alignof(*match)); 
+    VkcInstanceLayerMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
     if (!match) {
         LOG_ERROR("[VkcInstanceLayerMatch] Failed to allocate result.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     *match = (VkcInstanceLayerMatch){
-        .pager = pager,
+        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -125,14 +125,14 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
         for (uint32_t i = 0; i < layer->count; i++) {
             LOG_INFO("  - %s", layer->properties[i].layerName);
         }
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
-    match->names = page_malloc(pager, match->count * sizeof(char*), alignof(char*));
+    match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
     if (!match->names) {
         LOG_ERROR("[VkcInstanceLayerMatch] Failed to allocate name pointer array.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -144,11 +144,11 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
                 char* copy = utf8_raw_copy(layer->properties[i].layerName);
                 if (!copy) {
                     LOG_ERROR("[VkcInstanceLayerMatch] Failed to copy name.");
-                    page_allocator_free(pager);
+                    page_allocator_free(allocator);
                     return NULL;
                 }
 
-                page_add(pager, copy, utf8_raw_byte_count(copy), alignof(char));
+                page_add(allocator, copy, utf8_raw_byte_count(copy), alignof(char));
                 match->names[k++] = copy;
             }
         }
@@ -166,8 +166,8 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 }
 
 void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
-    if (match && match->pager) {
-        page_allocator_free(match->pager);
+    if (match && match->allocator) {
+        page_allocator_free(match->allocator);
     }
 }
 
@@ -179,21 +179,21 @@ void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
  */
 
 VkcInstanceExtension* vkc_instance_extension_create(void) {
-    PageAllocator* pager = page_allocator_create(8);
-    if (!pager) {
+    PageAllocator* allocator = page_allocator_create(8);
+    if (!allocator) {
         LOG_ERROR("[VkcInstanceExtension] Failed to create allocator.");
         return NULL;
     }
 
-    VkcInstanceExtension* ext = page_malloc(pager, sizeof(*ext), alignof(*ext));
+    VkcInstanceExtension* ext = page_malloc(allocator, sizeof(*ext), alignof(*ext));
     if (!ext) {
         LOG_ERROR("[VkcInstanceExtension] Failed to allocate instance extension structure.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     *ext = (VkcInstanceExtension){
-        .pager = pager,
+        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
@@ -201,22 +201,22 @@ VkcInstanceExtension* vkc_instance_extension_create(void) {
     VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, NULL);
     if (VK_SUCCESS != result || 0 == ext->count) {
         LOG_ERROR("[VkcInstanceExtension] Failed to enumerate extension count (VkResult: %d).", result);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     ext->properties = page_malloc(
-        pager, ext->count * sizeof(VkExtensionProperties), alignof(VkExtensionProperties));
+        allocator, ext->count * sizeof(VkExtensionProperties), alignof(VkExtensionProperties));
     if (!ext->properties) {
         LOG_ERROR("[VkcInstanceExtension] Failed to allocate %u extension properties.", ext->count);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, ext->properties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcInstanceExtension] Failed to populate extension properties (VkResult: %d).", result);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -232,8 +232,8 @@ VkcInstanceExtension* vkc_instance_extension_create(void) {
 }
 
 void vkc_instance_extension_free(VkcInstanceExtension* extension) {
-    if (extension && extension->pager) {
-        page_allocator_free(extension->pager);
+    if (extension && extension->allocator) {
+        page_allocator_free(extension->allocator);
     }
 }
 
@@ -249,21 +249,21 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 ) {
     if (!extension || !names || name_count == 0) return NULL;
 
-    PageAllocator* pager = page_allocator_create(8);
-    if (!pager) {
+    PageAllocator* allocator = page_allocator_create(8);
+    if (!allocator) {
         LOG_ERROR("[VkcInstanceExtensionMatch] Failed to create allocator.");
         return NULL;
     }
 
-    VkcInstanceExtensionMatch* match = page_malloc(pager, sizeof(*match), alignof(*match)); 
+    VkcInstanceExtensionMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
     if (!match) {
         LOG_ERROR("[VkcInstanceExtensionMatch] Failed to allocate result.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     *match = (VkcInstanceExtensionMatch){
-        .pager = pager,
+        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -286,14 +286,14 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
         for (uint32_t i = 0; i < extension->count; i++) {
             LOG_INFO("  - %s", extension->properties[i].extensionName);
         }
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
-    match->names = page_malloc(pager, match->count * sizeof(char*), alignof(char*));
+    match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
     if (!match->names) {
         LOG_ERROR("[VkcInstanceExtensionMatch] Failed to allocate name pointer array.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -305,11 +305,11 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
                 char* copy = utf8_raw_copy(extension->properties[i].extensionName);
                 if (!copy) {
                     LOG_ERROR("[VkcInstanceExtensionMatch] Failed to copy name.");
-                    page_allocator_free(pager);
+                    page_allocator_free(allocator);
                     return NULL;
                 }
 
-                page_add(pager, copy, utf8_raw_byte_count(copy), alignof(char));
+                page_add(allocator, copy, utf8_raw_byte_count(copy), alignof(char));
                 match->names[k++] = copy;
             }
         }
@@ -327,8 +327,8 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 }
 
 void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match) {
-    if (match && match->pager) {
-        page_allocator_free(match->pager);
+    if (match && match->allocator) {
+        page_allocator_free(match->allocator);
     }
 }
 
@@ -397,29 +397,29 @@ VkcInstance* vkc_instance_create(
         create_info.ppEnabledExtensionNames = (const char* const*) extension_match->names;
     }
 
-    PageAllocator* pager = page_allocator_create(8);
-    if (!pager) {
+    PageAllocator* allocator = page_allocator_create(8);
+    if (!allocator) {
         LOG_ERROR("[VkcInstance] Failed to create page allocator.");
         return NULL;
     }
 
-    VkcInstance* instance = page_malloc(pager, sizeof(*instance), alignof(*instance));
+    VkcInstance* instance = page_malloc(allocator, sizeof(*instance), alignof(*instance));
     if (!instance) {
         LOG_ERROR("[VkcInstance] Failed to allocate instance wrapper.");
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
     *instance = (VkcInstance){
-        .pager = pager,
+        .allocator = allocator,
         .object = VK_NULL_HANDLE,
-        .allocator = vkc_page_callbacks(pager),
+        .callbacks = vkc_page_callbacks(allocator),
     };
 
-    result = vkCreateInstance(&create_info, &instance->allocator, &instance->object);
+    result = vkCreateInstance(&create_info, &instance->callbacks, &instance->object);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcInstance] Failed to create instance object (VkResult=%d)", result);
-        page_allocator_free(pager);
+        page_allocator_free(allocator);
         return NULL;
     }
 
@@ -431,9 +431,9 @@ VkcInstance* vkc_instance_create(
 }
 
 void vkc_instance_free(VkcInstance* instance) {
-    if (instance && instance->pager && instance->object) {
-        vkDestroyInstance(instance->object, &instance->allocator);
-        page_allocator_free(instance->pager);
+    if (instance && instance->allocator && instance->object) {
+        vkDestroyInstance(instance->object, &instance->callbacks);
+        page_allocator_free(instance->allocator);
     }
 }
 
