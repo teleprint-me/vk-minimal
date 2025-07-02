@@ -431,10 +431,8 @@ VkcInstance* vkc_instance_create(
 }
 
 void vkc_instance_free(VkcInstance* instance) {
-    if (instance && instance->pager) {
-        if (instance->object) {
-            vkDestroyInstance(instance->object, &instance->allocator);
-        }
+    if (instance && instance->pager && instance->object) {
+        vkDestroyInstance(instance->object, &instance->allocator);
         page_allocator_free(instance->pager);
     }
 }
