@@ -5,98 +5,193 @@
 #include "core/posix.h"
 #include "core/logger.h"
 #include "vk/allocator.h"
-#include "vk/validation.h"
-#include "vk/extension.h"
 #include "vk/device.h"
 
 /**
- * @name Private methods
- * {@
+ * @name Physical Device List
+ * @{
  */
 
-uint32_t vkc_physical_device_count(VkcInstance* instance) {
-    uint32_t device_count = 0;
-    VkResult result = vkEnumeratePhysicalDevices(instance->object, &device_count, NULL);
-    if (VK_SUCCESS != result || 0 == device_count) {
+VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        return NULL;
+    }
+
+    VkcDeviceList* list = page_malloc(allocator, sizeof(*list), alignof(*list));
+    if (!list) {
+        return NULL;
+    }
+
+    *list = (VkcDeviceList) {
+        .allocator = allocator,
+        .devices = NULL,
+        .count = 0,
+    };
+
+    VkResult result = vkEnumeratePhysicalDevices(instance->object, &list->count, NULL);
+    if (VK_SUCCESS != result || 0 == list->count) {
         LOG_ERROR(
-            "No Vulkan-compatible devices found (VkResult: %d, Count: %u)", result, device_count
+            "[VkcDeviceList] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
+            result,
+            list->count
+        );
+        return NULL;
+    }
+
+    list->devices = page_malloc(
+        allocator,
+        list->count * sizeof(VkPhysicalDevice),
+        alignof(VkPhysicalDevice)
+    );
+    if (NULL == list->devices) {
+        LOG_ERROR("[VkcDeviceList] Failed to allocate device list.");
+        return NULL;
+    }
+
+    result = vkEnumeratePhysicalDevices(instance->object, &list->count, list->devices);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceList] Failed to enumerate devices (VkResult: %d)", result);
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkcDeviceList] Found %u devices.", list->count);
+    for (uint32_t i = 0; i < list->count; i++) {
+        VkPhysicalDevice device = list->devices[i];
+        VkPhysicalDeviceProperties properties = {0};
+        vkGetPhysicalDeviceProperties(device, &properties);    
+        LOG_DEBUG("[VkcDeviceList] i=%u, name=%s, type=%d", 
+            i, properties.deviceName, (int) properties.deviceType
         );
     }
-    return device_count;
+#endif
+
+    return list;
 }
 
-VkPhysicalDevice*
-vkc_physical_device_list(PageAllocator* pager, VkcInstance* instance, uint32_t device_count) {
-    VkPhysicalDevice* device_list
-        = page_malloc(pager, device_count * sizeof(VkPhysicalDevice), alignof(VkPhysicalDevice));
+void vkc_device_list_free(VkcDeviceList* list) {
+    if (list && list->allocator) {
+        page_allocator_free(list->allocator);
+    }
+}
 
-    if (!device_list) {
-        LOG_ERROR("Failed to allocate physical device list.");
+/** @} */
+
+/**
+ * @name Queue Family Properties
+ * @{
+ */
+
+VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
+    if (!device) {
+        LOG_ERROR("[VkcDeviceQueueFamily] Invalid physical device.");
         return NULL;
     }
 
-    VkResult result = vkEnumeratePhysicalDevices(instance->object, &device_count, device_list);
-    if (VK_SUCCESS != result) {
-        LOG_ERROR("Failed to set physical device list.");
-        page_free(pager, device_list);
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to create allocator context.");
         return NULL;
     }
 
-    return device_list;
-}
+    VkcDeviceQueueFamily* family = page_malloc(allocator, sizeof(*family), alignof(*family));
+    if (!family) {
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory to family structure.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
 
-bool vkc_physical_device_select_candidate(
-    VkcDevice* device, VkPhysicalDevice* list, uint32_t i, VkPhysicalDeviceType type
-) {
-    VkPhysicalDevice candidate = list[i];
-    VkPhysicalDeviceProperties props = {0};
-    vkGetPhysicalDeviceProperties(candidate, &props);
+    *family = (VkcDeviceQueueFamily) {
+        .allocator = allocator,
+        .properties = NULL,
+        .count = 0,
+    };
 
-    uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, NULL);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &family->count, NULL);
 
-    VkQueueFamilyProperties* queue_families = page_malloc(
-        device->pager,
-        queue_family_count * sizeof(VkQueueFamilyProperties),
+    if (0 == family->count) {
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to query family count.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    family->properties = page_malloc(
+        allocator,
+        family->count * sizeof(VkQueueFamilyProperties),
         alignof(VkQueueFamilyProperties)
     );
 
-    vkGetPhysicalDeviceQueueFamilyProperties(candidate, &queue_family_count, queue_families);
-
-#if defined(DEBUG) && (1 == DEBUG)
-    LOG_DEBUG("[VK_DEVICE] Candidate %u: %s, type=%d", i, props.deviceName, props.deviceType);
-#endif
-
-    for (uint32_t j = 0; j < queue_family_count; ++j) {
-        if (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            if (type == props.deviceType && VK_NULL_HANDLE == device->physical) {
-                device->queue_family_index = j;
-                device->physical = candidate;
-                device->properties = props;
-                vkGetPhysicalDeviceFeatures(candidate, &device->features);
-                break;
-            }
-        }
+    if (!family->properties) {
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory for %u properties.", family->count);
+        page_allocator_free(allocator);
+        return NULL;
     }
 
-    if (VK_NULL_HANDLE != device->physical) {
-#if defined(DEBUG) && (1 == DEBUG)
-        LOG_DEBUG("[VK_DEVICE] Selected %u: %s, type=%d", i, props.deviceName, props.deviceType);
-#endif
-        return true;
-    }
-
-    page_free(device->pager, queue_families);
-    return false;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &family->count, family->properties);
+    return family;
 }
 
-bool vkc_physical_device_select_type(
-    VkcDevice* device, VkPhysicalDevice* list, uint32_t count, VkPhysicalDeviceType type
-) {
-    // Pick first discrete GPU with compute support
-    for (uint32_t i = 0; i < count; i++) {
-        if (vkc_physical_device_select_candidate(device, list, i, type)) {
-            return true;
+void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
+    if (family && family->allocator) {
+        page_allocator_free(family->allocator);
+    }
+}
+
+/** @} */
+
+/**
+ * @name Physical Device Selection
+ * @{
+ */
+
+bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
+    static const VkPhysicalDeviceType type[] = {
+        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+        VK_PHYSICAL_DEVICE_TYPE_CPU,
+    };
+
+    static const uint32_t type_count = sizeof(type) / sizeof(VkPhysicalDeviceType);
+
+    for (uint32_t i = 0; i < type_count; i++) {
+        for (uint32_t j = 0; j < list->count; j++) {
+            VkPhysicalDevice candidate = list->devices[j];
+            VkPhysicalDeviceProperties properties = {0};
+            vkGetPhysicalDeviceProperties(candidate, &properties);
+
+            VkcDeviceQueueFamily* family = vkc_device_queue_family_create(candidate);
+            if (!family) {
+                return false;
+            }
+
+    #if defined(DEBUG) && (1 == DEBUG)
+            LOG_DEBUG("[VkcPhysicalDevice] Candidate %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
+    #endif
+
+            bool selected = false;
+            for (uint32_t k = 0; k < family->count; k++) {
+                if (family->properties[k].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                    if (type[i] == properties.deviceType) {
+                        device->queue->family_index = k;
+                        device->queue->family_properties = family->properties[k];
+                        device->physical->object = candidate;
+                        device->physical->properties = properties;
+                        device->physical->type = type[i];
+                        vkGetPhysicalDeviceFeatures(candidate, &device->physical->features);
+                        selected = true;
+                        break;
+                    }
+                }
+            }
+
+            vkc_device_queue_family_free(family);
+            if (selected) {
+    #if defined(DEBUG) && (1 == DEBUG)
+                LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
+    #endif
+                return true;
+            }
         }
     }
 
@@ -104,21 +199,7 @@ bool vkc_physical_device_select_type(
     return false;
 }
 
-bool vkc_physical_device_select(VkcDevice* device, VkPhysicalDevice* list, uint32_t count) {
-    VkPhysicalDeviceType preference[] = {
-        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
-        VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
-        VK_PHYSICAL_DEVICE_TYPE_CPU,
-    };
-
-    for (size_t i = 0; i < sizeof(preference) / sizeof(VkPhysicalDeviceType); i++) {
-        if (vkc_physical_device_select_type(device, list, count, preference[i])) {
-            return true;
-        }
-    }
-
-    return false;
-}
+/** @} */
 
 VkDeviceQueueCreateInfo vkc_physical_device_queue_create_info(VkcDevice* device) {
     static const float queue_priorities[1] = {1.0f};
