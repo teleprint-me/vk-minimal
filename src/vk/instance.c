@@ -16,7 +16,7 @@
  */
 
 VkcInstanceLayer* vkc_instance_layer_create(void) {
-    PageAllocator* allocator = page_allocator_create(8);
+    PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcInstanceLayer] Failed to create allocator.");
         return NULL;
@@ -88,7 +88,7 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 ) {
     if (!layer || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(8);
+    PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcInstanceLayerMatch] Failed to create allocator.");
         return NULL;
@@ -179,7 +179,7 @@ void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
  */
 
 VkcInstanceExtension* vkc_instance_extension_create(void) {
-    PageAllocator* allocator = page_allocator_create(8);
+    PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcInstanceExtension] Failed to create allocator.");
         return NULL;
@@ -249,7 +249,7 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 ) {
     if (!extension || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(8);
+    PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcInstanceExtensionMatch] Failed to create allocator.");
         return NULL;
@@ -397,7 +397,7 @@ VkcInstance* vkc_instance_create(
         create_info.ppEnabledExtensionNames = (const char* const*) extension_match->names;
     }
 
-    PageAllocator* allocator = page_allocator_create(8);
+    PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcInstance] Failed to create page allocator.");
         return NULL;
