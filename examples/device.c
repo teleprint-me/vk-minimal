@@ -1,5 +1,13 @@
 /**
  * @file examples/device.c
+ * 
+ * VkcDevice Setup Flow:
+ *
+ *   - VkcDeviceList         ← Enumerate VkPhysicalDevice
+ *   - VkcDeviceQueueFamily  ← For each VkPhysicalDevice, find usable queues
+ *   - VkcDeviceLayer        ← Optional: enumerate & match device validation layers
+ *   - VkcDeviceExtension    ← Optional: enumerate & match device extensions
+ *   - vkc_physical_device_select() ← Selects one based on VK_QUEUE_COMPUTE_BIT
  */
 
 #include "core/logger.h"
@@ -234,7 +242,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
                 return false;
             }
 
-    #if defined(DEBUG) && (1 == DEBUG)
+    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
             LOG_DEBUG("[VkcPhysicalDevice] Candidate %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
     #endif
 
@@ -256,7 +264,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
 
             vkc_device_queue_family_free(family);
             if (selected) {
-    #if defined(DEBUG) && (1 == DEBUG)
+    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
                 LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
     #endif
                 return true;
@@ -284,7 +292,7 @@ VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
 
     VkcDeviceLayer* layer = page_malloc(allocator, sizeof(*layer), alignof(*layer));
     if (!layer) {
-        LOG_ERROR("[VkcDeviceLayer] Failed to allocated device layer structure.");
+        LOG_ERROR("[VkcDeviceLayer] Failed to allocate device layer structure.");
         page_allocator_free(allocator);
         return NULL;
     }
@@ -505,7 +513,7 @@ VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
 
 void vkc_device_extension_free(VkcDeviceExtension* extension) {
     if (extension && extension->allocator) {
-        page_allocator_free(extension);
+        page_allocator_free(extension->allocator);
     }
 }
 
