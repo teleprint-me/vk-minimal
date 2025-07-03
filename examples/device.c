@@ -56,7 +56,7 @@ typedef struct VkcDevice {
  * @{
  */
 
-VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
+VkcDeviceList* vkc_device_list_create(VkInstance* instance) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         return NULL;
@@ -73,7 +73,7 @@ VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
         .count = 0,
     };
 
-    VkResult result = vkEnumeratePhysicalDevices(instance->object, &list->count, NULL);
+    VkResult result = vkEnumeratePhysicalDevices(instance, &list->count, NULL);
     if (VK_SUCCESS != result || 0 == list->count) {
         LOG_ERROR(
             "[VkcDeviceList] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
@@ -93,7 +93,7 @@ VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
         return NULL;
     }
 
-    result = vkEnumeratePhysicalDevices(instance->object, &list->count, list->devices);
+    result = vkEnumeratePhysicalDevices(instance, &list->count, list->devices);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceList] Failed to enumerate devices (VkResult: %d)", result);
         return NULL;
@@ -242,6 +242,94 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
     LOG_ERROR("No suitable compute-capable discrete GPU found.");
     return false;
 }
+
+/** @} */
+
+/**
+ * @name Device Layers
+ * @{
+ */
+
+typedef struct VkcDeviceLayer {
+    PageAllocator* allocator;
+    VkLayerProperties* properties;
+    uint32_t count;
+} VkcDeviceLayer;
+
+VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice* device) {
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to create allocator context.");
+        return NULL;
+    } 
+
+    VkcDeviceLayer* layer = page_malloc(allocator, sizeof(*layer), alignof(*layer));
+    if (!layer) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to allocated device layer structure.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *layer = (VkcDeviceLayer) {
+        .allocator = allocator,
+        .properties = NULL,
+        .count = 0,
+    };
+
+    VkResult result = vkEnumerateDeviceLayerProperties(device, &layer->count, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer property count.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    if (0 == layer->count) {
+        LOG_ERROR("[VkcDeviceLayer] Device layer properties are unavailable.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    layer->properties = page_malloc(
+        allocator,
+        layer->count * sizeof(VkLayerProperties),
+        alignof(VkLayerProperties) 
+    );
+
+    if (NULL == layer->properties) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to allocate %u device layer properties.", layer->count);
+        return NULL;
+    }
+
+    result = vkEnumerateDeviceLayerProperties(device, &layer->count, layer->properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer properties.");
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+        LOG_DEBUG("[VkcDeviceLayer] Found %u device layer properties.", layer->count);
+        for (uint32_t i = 0; i < layer->count; i++) {
+            LOG_DEBUG("[VkcDeviceLayer] i=%u, name=%s, description=%s", 
+                i, layer->properties[i].layerName, layer->properties[i].description
+            );
+        }
+#endif
+
+    return layer;
+}
+
+void vkc_device_layer_free(VkcDeviceLayer* layer) {
+    if (layer && layer->allocator) {
+        page_allocator_free(layer->allocator);
+    }
+}
+
+/** @} */
+
+/**
+ * @name Device Layer Match
+ * @{
+ */
 
 /** @} */
 
