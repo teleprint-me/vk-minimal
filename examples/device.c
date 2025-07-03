@@ -90,32 +90,32 @@ void vkc_device_list_free(VkcDeviceList* list) {
  * @{
  */
 
-typedef struct VkcQueueFamily {
+typedef struct VkcDeviceQueueFamily {
     PageAllocator* allocator;
     VkQueueFamilyProperties* properties;
     uint32_t count;
-} VkcQueueFamily;
+} VkcDeviceQueueFamily;
 
-VkcQueueFamily* vkc_queue_family_create(VkPhysicalDevice device) {
+VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
     if (!device) {
-        LOG_ERROR("[VkcQueueFamily] Invalid physical device.");
+        LOG_ERROR("[VkcDeviceQueueFamily] Invalid physical device.");
         return NULL;
     }
 
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
-        LOG_ERROR("[VkcQueueFamily] Failed to create allocator context.");
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to create allocator context.");
         return NULL;
     }
 
-    VkcQueueFamily* family = page_malloc(allocator, sizeof(*family), alignof(*family));
+    VkcDeviceQueueFamily* family = page_malloc(allocator, sizeof(*family), alignof(*family));
     if (!family) {
-        LOG_ERROR("[VkcQueueFamily] Failed to allocate memory to family structure.");
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory to family structure.");
         page_allocator_free(allocator);
         return NULL;
     }
 
-    *family = (VkcQueueFamily) {
+    *family = (VkcDeviceQueueFamily) {
         .allocator = allocator,
         .properties = NULL,
         .count = 0,
@@ -124,7 +124,7 @@ VkcQueueFamily* vkc_queue_family_create(VkPhysicalDevice device) {
     vkGetPhysicalDeviceQueueFamilyProperties(device, &family->count, NULL);
 
     if (0 == family->count) {
-        LOG_ERROR("[VkcQueueFamily] Failed to query family count.");
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to query family count.");
         page_allocator_free(allocator);
         return NULL;
     }
@@ -136,7 +136,7 @@ VkcQueueFamily* vkc_queue_family_create(VkPhysicalDevice device) {
     );
 
     if (!family->properties) {
-        LOG_ERROR("[VkcQueueFamily] Failed to allocate memory for %u properties.", family->count);
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory for %u properties.", family->count);
         page_allocator_free(allocator);
         return NULL;
     }
@@ -145,7 +145,7 @@ VkcQueueFamily* vkc_queue_family_create(VkPhysicalDevice device) {
     return family;
 }
 
-void vkc_queue_family_free(VkcQueueFamily* family) {
+void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
     if (family && family->allocator) {
         page_allocator_free(family->allocator);
     }
@@ -197,7 +197,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
             VkPhysicalDeviceProperties properties = {0};
             vkGetPhysicalDeviceProperties(candidate, &properties);
 
-            VkcQueueFamily* family = vkc_queue_family_create(candidate);
+            VkcDeviceQueueFamily* family = vkc_device_queue_family_create(candidate);
             if (!family) {
                 return false;
             }
@@ -222,7 +222,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
                 }
             }
 
-            vkc_queue_family_free(family);
+            vkc_device_queue_family_free(family);
             if (selected) {
     #if defined(DEBUG) && (1 == DEBUG)
                 LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
