@@ -459,86 +459,86 @@ void vkc_device_extension_free(VkcDeviceExtension* extension) {
  * {@
  */
 
-VkcDevice* vkc_device_create(VkcInstance* instance) {
-    PageAllocator* pager = page_allocator_create(1);
-    if (!pager) {
-        LOG_ERROR("Failed to create device pager.");
-        return NULL;
-    }
+// VkcDevice* vkc_device_create(VkcInstance* instance) {
+//     PageAllocator* pager = page_allocator_create(1);
+//     if (!pager) {
+//         LOG_ERROR("Failed to create device pager.");
+//         return NULL;
+//     }
 
-    VkcDevice* device = page_malloc(pager, sizeof(VkcDevice), alignof(VkcDevice));
-    if (!device) {
-        page_allocator_free(pager);
-        return NULL;
-    }
+//     VkcDevice* device = page_malloc(pager, sizeof(VkcDevice), alignof(VkcDevice));
+//     if (!device) {
+//         page_allocator_free(pager);
+//         return NULL;
+//     }
 
-    device->queue_family_index = UINT32_MAX;
-    device->physical = VK_NULL_HANDLE;
-    device->logical = VK_NULL_HANDLE;
-    device->queue = VK_NULL_HANDLE;
-    device->pager = pager;
-    device->allocator = vkc_page_callbacks(pager);
+//     device->queue_family_index = UINT32_MAX;
+//     device->physical = VK_NULL_HANDLE;
+//     device->logical = VK_NULL_HANDLE;
+//     device->queue = VK_NULL_HANDLE;
+//     device->pager = pager;
+//     device->allocator = vkc_page_callbacks(pager);
 
-    uint32_t device_count = vkc_physical_device_count(instance);
-    if (0 == device_count) {
-        page_allocator_free(pager);
-        return NULL;
-    }
+//     uint32_t device_count = vkc_physical_device_count(instance);
+//     if (0 == device_count) {
+//         page_allocator_free(pager);
+//         return NULL;
+//     }
 
-#if defined(DEBUG) && (1 == DEBUG)
-    LOG_DEBUG("[VK_DEVICE] count=%u", device_count);
-#endif
+// #if defined(DEBUG) && (1 == DEBUG)
+//     LOG_DEBUG("[VK_DEVICE] count=%u", device_count);
+// #endif
 
-    VkPhysicalDevice* device_list = vkc_physical_device_list(pager, instance, device_count);
-    if (!device_list) {
-        page_allocator_free(pager);
-        return NULL;
-    }
+//     VkPhysicalDevice* device_list = vkc_physical_device_list(pager, instance, device_count);
+//     if (!device_list) {
+//         page_allocator_free(pager);
+//         return NULL;
+//     }
 
-#if defined(DEBUG) && (1 == DEBUG)
-    for (size_t i = 0; i < device_count; i++) {
-        VkPhysicalDevice tmp = device_list[i];
-        VkPhysicalDeviceProperties props = {0};
-        vkGetPhysicalDeviceProperties(tmp, &props);
-        LOG_DEBUG("[VK_DEVICE] Option %u: %s, type=%d", i, props.deviceName, props.deviceType);
-    }
-#endif
+// #if defined(DEBUG) && (1 == DEBUG)
+//     for (size_t i = 0; i < device_count; i++) {
+//         VkPhysicalDevice tmp = device_list[i];
+//         VkPhysicalDeviceProperties props = {0};
+//         vkGetPhysicalDeviceProperties(tmp, &props);
+//         LOG_DEBUG("[VK_DEVICE] Option %u: %s, type=%d", i, props.deviceName, props.deviceType);
+//     }
+// #endif
 
-    if (!vkc_physical_device_select(device, device_list, device_count)) {
-        LOG_ERROR("No suitable Vulkan device found.");
-        page_allocator_free(pager);
-        return NULL;
-    }
+//     if (!vkc_physical_device_select(device, device_list, device_count)) {
+//         LOG_ERROR("No suitable Vulkan device found.");
+//         page_allocator_free(pager);
+//         return NULL;
+//     }
 
-    page_free(pager, device_list); // Prevent silent leaks
+//     page_free(pager, device_list); // Prevent silent leaks
 
-    VkDeviceQueueCreateInfo queue_info = vkc_physical_device_queue_create_info(device);
-    VkDeviceCreateInfo logical_info = vkc_logical_device_create_info(device, queue_info);
+//     VkDeviceQueueCreateInfo queue_info = vkc_physical_device_queue_create_info(device);
+//     VkDeviceCreateInfo logical_info = vkc_logical_device_create_info(device, queue_info);
 
-    VkResult result
-        = vkCreateDevice(device->physical, &logical_info, &device->allocator, &device->logical);
-    if (result != VK_SUCCESS) {
-        LOG_ERROR("Failed to create logical device: %d", result);
-        page_allocator_free(device->pager);
-        return NULL;
-    }
+//     VkResult result
+//         = vkCreateDevice(device->physical, &logical_info, &device->allocator, &device->logical);
+//     if (result != VK_SUCCESS) {
+//         LOG_ERROR("Failed to create logical device: %d", result);
+//         page_allocator_free(device->pager);
+//         return NULL;
+//     }
 
-    vkGetDeviceQueue(device->logical, device->queue_family_index, 0, &device->queue);
+//     vkGetDeviceQueue(device->logical, device->queue_family_index, 0, &device->queue);
 
-#if defined(DEBUG) && (1 == DEBUG)
-    LOG_DEBUG("[VK_DEVICE] Vulkan physical device created successfully @ %p", device->physical);
-    LOG_DEBUG("[VK_DEVICE] Vulkan logical device created successfully @ %p", device->logical);
-    LOG_DEBUG("[VK_DEVICE] Vulkan device queue created successfully @ %p", device->queue);
-#endif
+// #if defined(DEBUG) && (1 == DEBUG)
+//     LOG_DEBUG("[VK_DEVICE] Vulkan physical device created successfully @ %p", device->physical);
+//     LOG_DEBUG("[VK_DEVICE] Vulkan logical device created successfully @ %p", device->logical);
+//     LOG_DEBUG("[VK_DEVICE] Vulkan device queue created successfully @ %p", device->queue);
+// #endif
 
-    return device;
-}
+//     return device;
+// }
 
-void vkc_device_destroy(VkcDevice* device) {
-    if (device && device->pager) {
-        if (device->logical) {
-            vkDestroyDevice(device->logical, &device->allocator);
-        }
-        page_allocator_free(device->pager);
-    }
-}
+// void vkc_device_destroy(VkcDevice* device) {
+//     if (device && device->pager) {
+//         if (device->logical) {
+//             vkDestroyDevice(device->logical, &device->allocator);
+//         }
+//         page_allocator_free(device->pager);
+//     }
+// }
