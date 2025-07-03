@@ -459,6 +459,94 @@ void vkc_device_extension_free(VkcDeviceExtension* extension) {
  * @{
  */
 
+VkcDeviceExtensionMatch* vkc_device_extension_match_create(
+    VkcDeviceExtension* extension, const char* const* names, const uint32_t name_count
+) {
+    if (!extension || !names || name_count == 0) return NULL;
+
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceExtensionMatch] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcDeviceExtensionMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
+    if (!match) {
+        LOG_ERROR("[VkcDeviceExtensionMatch] Failed to allocate result.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *match = (VkcDeviceExtensionMatch){
+        .allocator = allocator,
+        .names = NULL,
+        .count = 0,
+    };
+
+    // First pass: count matching extensions
+    for (uint32_t i = 0; i < extension->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], extension->properties[i].extensionName)) {
+                match->count++;
+            }
+        }
+    }
+
+    if (match->count == 0) {
+        LOG_ERROR("[VkcDeviceExtensionMatch] No requested extensions were available:");
+        for (uint32_t i = 0; i < name_count; i++) {
+            LOG_ERROR("  - %s", names[i]);
+        }
+        LOG_INFO("Available device extensions:");
+        for (uint32_t i = 0; i < extension->count; i++) {
+            LOG_INFO("  - %s", extension->properties[i].extensionName);
+        }
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
+    if (!match->names) {
+        LOG_ERROR("[VkcDeviceExtensionMatch] Failed to allocate name pointer array.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    // Second pass: copy the matching names
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < extension->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], extension->properties[i].extensionName)) {
+                char* copy = utf8_raw_copy(extension->properties[i].extensionName);
+                if (!copy) {
+                    LOG_ERROR("[VkcDeviceExtensionMatch] Failed to copy name.");
+                    page_allocator_free(allocator);
+                    return NULL;
+                }
+
+                page_add(allocator, copy, utf8_raw_byte_count(copy), alignof(char));
+                match->names[k++] = copy;
+            }
+        }
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log the results to standard output
+    LOG_DEBUG("[VkcDeviceExtensionMatch] Matched %u device extension properties.", match->count);
+    for (uint32_t i = 0; i < match->count; i++) {
+        LOG_DEBUG("[VkcDeviceExtensionMatch] i=%u, name=%s", i, match->names[i]);
+    }
+#endif
+
+    return match;
+}
+
+void vkc_device_extension_match_free(VkcDeviceExtensionMatch* match) {
+    if (match && match->allocator) {
+        page_allocator_free(match->allocator);
+    }
+}
+
 /** @} */
 
 /**
