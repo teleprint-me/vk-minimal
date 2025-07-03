@@ -25,18 +25,19 @@
  */
 
 VkcDeviceList* vkc_device_list_create(VkInstance instance) {
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
+        LOG_ERROR("[VkcDeviceList] Failed to get global allocator.");
         return NULL;
     }
 
     VkcDeviceList* list = page_malloc(allocator, sizeof(*list), alignof(*list));
     if (!list) {
+        LOG_ERROR("[VkcDeviceList] Failed to allocate memory to list.");
         return NULL;
     }
 
     *list = (VkcDeviceList) {
-        .allocator = allocator,
         .devices = NULL,
         .count = 0,
     };
@@ -48,6 +49,7 @@ VkcDeviceList* vkc_device_list_create(VkInstance instance) {
             result,
             list->count
         );
+        page_free(allocator, list);
         return NULL;
     }
 
@@ -56,14 +58,18 @@ VkcDeviceList* vkc_device_list_create(VkInstance instance) {
         list->count * sizeof(VkPhysicalDevice),
         alignof(VkPhysicalDevice)
     );
-    if (NULL == list->devices) {
+
+    if (!list->devices) {
         LOG_ERROR("[VkcDeviceList] Failed to allocate device list.");
+        page_free(allocator, list);
         return NULL;
     }
 
     result = vkEnumeratePhysicalDevices(instance, &list->count, list->devices);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceList] Failed to enumerate devices (VkResult: %d)", result);
+        page_free(allocator, list->devices);
+        page_free(allocator, list);
         return NULL;
     }
 
@@ -83,8 +89,10 @@ VkcDeviceList* vkc_device_list_create(VkInstance instance) {
 }
 
 void vkc_device_list_free(VkcDeviceList* list) {
-    if (list && list->allocator) {
-        page_allocator_free(list->allocator);
+    if (list && list->devices) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, list->devices);
+        page_free(allocator, list);
     }
 }
 
@@ -101,30 +109,27 @@ VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
         return NULL;
     }
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcDeviceQueueFamily] Failed to create allocator context.");
+        LOG_ERROR("[VkcDeviceQueueFamily] Failed to get global allocator.");
         return NULL;
     }
 
     VkcDeviceQueueFamily* family = page_malloc(allocator, sizeof(*family), alignof(*family));
     if (!family) {
         LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory to family structure.");
-        page_allocator_free(allocator);
         return NULL;
     }
 
     *family = (VkcDeviceQueueFamily) {
-        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
 
     vkGetPhysicalDeviceQueueFamilyProperties(device, &family->count, NULL);
-
     if (0 == family->count) {
         LOG_ERROR("[VkcDeviceQueueFamily] Failed to query family count.");
-        page_allocator_free(allocator);
+        page_free(allocator, family);
         return NULL;
     }
 
@@ -136,7 +141,7 @@ VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
 
     if (!family->properties) {
         LOG_ERROR("[VkcDeviceQueueFamily] Failed to allocate memory for %u properties.", family->count);
-        page_allocator_free(allocator);
+        page_free(allocator, family);
         return NULL;
     }
 
@@ -145,8 +150,10 @@ VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
 }
 
 void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
-    if (family && family->allocator) {
-        page_allocator_free(family->allocator);
+    if (family && family->properties) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, family->properties);
+        page_free(allocator, family);
     }
 }
 
@@ -157,14 +164,36 @@ void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
  * @{
  */
 
-bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
-    static const VkPhysicalDeviceType type[] = {
+VkcPhysicalDevice* vkc_device_physical_create(VkcDeviceList* list) {
+    if (!list) {
+        LOG_ERROR("[VkcPhysicalDevice] Invalid parameters given.");
+        return VK_NULL_HANDLE;
+    }
+
+    PageAllocator* allocator = vkc_allocator_get();
+    if (!allocator) {
+        LOG_ERROR("[VkcPhysicalDevice] Failed to get global allocator.");
+        return NULL;
+    }
+
+    VkcPhysicalDevice* device = page_malloc(allocator, sizeof(*device), alignof(*device));
+    if (!device) {
+        LOG_ERROR("[VkcPhysicalDevice] Failed to create physical device wrapper.");
+        return NULL;
+    }
+
+    *device = (VkcPhysicalDevice) {
+        .object = VK_NULL_HANDLE,
+        .queue_family_index = 0,
+    };
+
+    static const VkPhysicalDeviceType types[] = {
         VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
         VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
         VK_PHYSICAL_DEVICE_TYPE_CPU,
     };
 
-    static const uint32_t type_count = sizeof(type) / sizeof(VkPhysicalDeviceType);
+    static const uint32_t type_count = sizeof(types) / sizeof(VkPhysicalDeviceType);
 
     for (uint32_t i = 0; i < type_count; i++) {
         for (uint32_t j = 0; j < list->count; j++) {
@@ -174,41 +203,53 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
 
             VkcDeviceQueueFamily* family = vkc_device_queue_family_create(candidate);
             if (!family) {
-                return false;
+                page_free(allocator, device);
+                return NULL;
             }
 
-    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
-            LOG_DEBUG("[VkcPhysicalDevice] Candidate %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
-    #endif
-
-            bool selected = false;
             for (uint32_t k = 0; k < family->count; k++) {
                 if (family->properties[k].queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                    if (type[i] == properties.deviceType) {
-                        device->queue->family_index = k;
-                        device->queue->family_properties = family->properties[k];
-                        device->physical->object = candidate;
-                        device->physical->properties = properties;
-                        device->physical->type = type[i];
-                        vkGetPhysicalDeviceFeatures(candidate, &device->physical->features);
-                        selected = true;
-                        break;
+                    if (types[i] == properties.deviceType) {
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+                        LOG_DEBUG(
+                            "[VkPhysicalDevice] Selected name=%s, type=%d, queue=%u, api=%u.%u.%u, driver=%u.%u.%u",
+                            properties.deviceName,
+                            properties.deviceType,
+                            k,
+                            VK_VERSION_MAJOR(properties.apiVersion),
+                            VK_VERSION_MINOR(properties.apiVersion),
+                            VK_VERSION_PATCH(properties.apiVersion),
+                            VK_VERSION_MAJOR(properties.driverVersion),
+                            VK_VERSION_MINOR(properties.driverVersion),
+                            VK_VERSION_PATCH(properties.driverVersion)
+                        );
+#endif
+                        vkc_device_queue_family_free(family);
+                        device->queue_family_index = k;
+                        device->object = candidate;
+                        return device;
                     }
                 }
             }
 
             vkc_device_queue_family_free(family);
-            if (selected) {
-    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
-                LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
-    #endif
-                return true;
-            }
         }
     }
 
-    LOG_ERROR("No suitable compute-capable discrete GPU found.");
-    return false;
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    LOG_DEBUG("[VkPhysicalDevice] No suitable compute-capable device found.");
+#endif
+
+    page_free(allocator, device);
+    return NULL;
+}
+
+void vkc_device_physical_free(VkcPhysicalDevice* device) {
+    if (device && device->object) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, device->object);
+        page_free(allocator, device);
+    }
 }
 
 /** @} */
@@ -219,21 +260,19 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
  */
 
 VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcDeviceLayer] Failed to create allocator context.");
+        LOG_ERROR("[VkcDeviceLayer] Failed to get global allocator.");
         return NULL;
     } 
 
     VkcDeviceLayer* layer = page_malloc(allocator, sizeof(*layer), alignof(*layer));
     if (!layer) {
         LOG_ERROR("[VkcDeviceLayer] Failed to allocate device layer structure.");
-        page_allocator_free(allocator);
         return NULL;
     }
 
     *layer = (VkcDeviceLayer) {
-        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
@@ -241,13 +280,13 @@ VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
     VkResult result = vkEnumerateDeviceLayerProperties(device, &layer->count, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer property count.");
-        page_allocator_free(allocator);
+        page_free(allocator, layer);
         return NULL;
     }
 
     if (0 == layer->count) {
         LOG_ERROR("[VkcDeviceLayer] Device layer properties are unavailable.");
-        page_allocator_free(allocator);
+        page_free(allocator, layer);
         return NULL;
     }
 
@@ -259,12 +298,15 @@ VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
 
     if (NULL == layer->properties) {
         LOG_ERROR("[VkcDeviceLayer] Failed to allocate %u device layer properties.", layer->count);
+        page_free(allocator, layer);
         return NULL;
     }
 
     result = vkEnumerateDeviceLayerProperties(device, &layer->count, layer->properties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer properties.");
+        page_free(allocator, layer->properties);
+        page_free(allocator, layer);
         return NULL;
     }
 
@@ -281,8 +323,10 @@ VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
 }
 
 void vkc_device_layer_free(VkcDeviceLayer* layer) {
-    if (layer && layer->allocator) {
-        page_allocator_free(layer->allocator);
+    if (layer && layer->properties) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, layer->properties);
+        page_free(allocator, layer);
     }
 }
 
@@ -298,21 +342,19 @@ VkcDeviceLayerMatch* vkc_device_layer_match_create(
 ) {
     if (!layer || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcDeviceLayerMatch] Failed to create allocator.");
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to get global allocator.");
         return NULL;
     }
 
     VkcDeviceLayerMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
     if (!match) {
         LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate result.");
-        page_allocator_free(allocator);
         return NULL;
     }
 
     *match = (VkcDeviceLayerMatch){
-        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -335,14 +377,14 @@ VkcDeviceLayerMatch* vkc_device_layer_match_create(
         for (uint32_t i = 0; i < layer->count; i++) {
             LOG_INFO("  - %s", layer->properties[i].layerName);
         }
-        page_allocator_free(allocator);
+        page_free(allocator, match);
         return NULL;
     }
 
     match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
     if (!match->names) {
         LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate name pointer array.");
-        page_allocator_free(allocator);
+        page_free(allocator, match);
         return NULL;
     }
 
@@ -354,7 +396,8 @@ VkcDeviceLayerMatch* vkc_device_layer_match_create(
                 char* copy = utf8_raw_copy(layer->properties[i].layerName);
                 if (!copy) {
                     LOG_ERROR("[VkcDeviceLayerMatch] Failed to copy name.");
-                    page_allocator_free(allocator);
+                    page_free(allocator, match->names);
+                    page_free(allocator, match);
                     return NULL;
                 }
 
@@ -376,8 +419,10 @@ VkcDeviceLayerMatch* vkc_device_layer_match_create(
 }
 
 void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
-    if (match && match->allocator) {
-        page_allocator_free(match->allocator);
+    if (match && match->names) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, match->names);
+        page_free(allocator, match);
     }
 }
 
@@ -389,21 +434,19 @@ void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
  */
 
 VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcDeviceExtension] Failed to create allocator.");
+        LOG_ERROR("[VkcDeviceExtension] Failed to get global allocator.");
         return NULL;
     }
 
     VkcDeviceExtension* extension = page_malloc(allocator, sizeof(*extension), alignof(*extension));
     if (!extension) {
         LOG_ERROR("[VkcDeviceExtension] Failed to allocate extension structure.");
-        page_allocator_free(allocator);
         return NULL;
     }
 
     *extension = (VkcDeviceExtension) {
-        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
@@ -411,7 +454,7 @@ VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
     VkResult result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, NULL);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension property count.");
-        page_allocator_free(allocator);
+        page_free(allocator, extension);
         return NULL;
     }
 
@@ -424,14 +467,15 @@ VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
     if (!extension->properties) {
         LOG_ERROR(
             "[VkcDeviceExtension] Failed to allocate %u device extension properties.", extension->count);
-        page_allocator_free(allocator);
+        page_free(allocator, extension);
         return NULL;
     }
 
     result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, extension->properties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension properties.");
-        page_allocator_free(allocator);
+        page_free(allocator, extension->properties);
+        page_free(allocator, extension);
         return NULL;
     }
 
@@ -447,8 +491,10 @@ VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
 }
 
 void vkc_device_extension_free(VkcDeviceExtension* extension) {
-    if (extension && extension->allocator) {
-        page_allocator_free(extension->allocator);
+    if (extension && extension->properties) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, extension->properties);
+        page_free(allocator, extension);
     }
 }
 
@@ -464,21 +510,19 @@ VkcDeviceExtensionMatch* vkc_device_extension_match_create(
 ) {
     if (!extension || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcDeviceExtensionMatch] Failed to create allocator.");
+        LOG_ERROR("[VkcDeviceExtensionMatch] Failed to get global allocator.");
         return NULL;
     }
 
     VkcDeviceExtensionMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
     if (!match) {
         LOG_ERROR("[VkcDeviceExtensionMatch] Failed to allocate result.");
-        page_allocator_free(allocator);
         return NULL;
     }
 
     *match = (VkcDeviceExtensionMatch){
-        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -492,7 +536,7 @@ VkcDeviceExtensionMatch* vkc_device_extension_match_create(
         }
     }
 
-    if (match->count == 0) {
+    if (0 == match->count) {
         LOG_ERROR("[VkcDeviceExtensionMatch] No requested extensions were available:");
         for (uint32_t i = 0; i < name_count; i++) {
             LOG_ERROR("  - %s", names[i]);
@@ -501,14 +545,14 @@ VkcDeviceExtensionMatch* vkc_device_extension_match_create(
         for (uint32_t i = 0; i < extension->count; i++) {
             LOG_INFO("  - %s", extension->properties[i].extensionName);
         }
-        page_allocator_free(allocator);
+        page_free(allocator, match);
         return NULL;
     }
 
     match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
     if (!match->names) {
         LOG_ERROR("[VkcDeviceExtensionMatch] Failed to allocate name pointer array.");
-        page_allocator_free(allocator);
+        page_free(allocator, match);
         return NULL;
     }
 
@@ -520,7 +564,8 @@ VkcDeviceExtensionMatch* vkc_device_extension_match_create(
                 char* copy = utf8_raw_copy(extension->properties[i].extensionName);
                 if (!copy) {
                     LOG_ERROR("[VkcDeviceExtensionMatch] Failed to copy name.");
-                    page_allocator_free(allocator);
+                    page_free(allocator, match->names);
+                    page_free(allocator, match);
                     return NULL;
                 }
 
@@ -542,8 +587,10 @@ VkcDeviceExtensionMatch* vkc_device_extension_match_create(
 }
 
 void vkc_device_extension_match_free(VkcDeviceExtensionMatch* match) {
-    if (match && match->allocator) {
-        page_allocator_free(match->allocator);
+    if (match && match->names) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, match->names);
+        page_free(allocator, match);
     }
 }
 
@@ -555,7 +602,7 @@ void vkc_device_extension_match_free(VkcDeviceExtensionMatch* match) {
  */
 
 // VkcDevice* vkc_device_create(VkcInstance* instance) {
-//     PageAllocator* pager = page_allocator_create(1);
+//     PageAllocator* pager = vkc_allocator_get();
 //     if (!pager) {
 //         LOG_ERROR("Failed to create device pager.");
 //         return NULL;

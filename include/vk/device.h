@@ -27,7 +27,6 @@ extern "C" {
  */
 
 typedef struct VkcDeviceList {
-    PageAllocator* allocator;
     VkPhysicalDevice* devices;
     uint32_t count;
 } VkcDeviceList;
@@ -43,7 +42,6 @@ void vkc_device_list_free(VkcDeviceList* list);
  */
 
 typedef struct VkcDeviceQueueFamily {
-    PageAllocator* allocator;
     VkQueueFamilyProperties* properties;
     uint32_t count;
 } VkcDeviceQueueFamily;
@@ -58,25 +56,13 @@ void vkc_device_queue_family_free(VkcDeviceQueueFamily* family);
  * @{
  */
 
-typedef struct VkcQueue {
-    VkQueue object;
-    VkQueueFamilyProperties family_properties;
-    float* priorities;
-    uint32_t family_index;
-    uint32_t index;
-    uint32_t count;
-} VkcQueue;
-
 typedef struct VkcPhysicalDevice {
     VkPhysicalDevice object;
-    VkPhysicalDeviceProperties properties;
-    VkPhysicalDeviceFeatures features;
-    VkPhysicalDeviceType type;
+    uint32_t queue_family_index;
 } VkcPhysicalDevice;
 
-typedef struct VkcDevice VkcDevice;
-
-bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list);
+VkcPhysicalDevice* vkc_device_physical_create(VkcDeviceList* list);
+void vkc_device_physical_free(VkcPhysicalDevice* device);
 
 /** @} */
 
@@ -86,7 +72,6 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list);
  */
 
 typedef struct VkcDeviceLayer {
-    PageAllocator* allocator;
     VkLayerProperties* properties;
     uint32_t count;
 } VkcDeviceLayer;
@@ -102,7 +87,6 @@ void vkc_device_layer_free(VkcDeviceLayer* layer);
  */
 
 typedef struct VkcDeviceLayerMatch {
-    PageAllocator* allocator;
     char** names;
     uint32_t count;
 } VkcDeviceLayerMatch;
@@ -119,7 +103,6 @@ void vkc_device_layer_match_free(VkcDeviceLayerMatch* match);
  */
 
 typedef struct VkcDeviceExtension {
-    PageAllocator* allocator;
     VkExtensionProperties* properties;
     uint32_t count;
 } VkcDeviceExtension;
@@ -135,7 +118,6 @@ void vkc_device_extension_free(VkcDeviceExtension* extension);
  */
 
 typedef struct VkcDeviceExtensionMatch {
-    PageAllocator* allocator;
     char** names;
     uint32_t count;
 } VkcDeviceExtensionMatch;
@@ -152,9 +134,6 @@ void vkc_device_extension_match_free(VkcDeviceExtensionMatch* match);
  */
 
 typedef struct VkcDevice {
-    PageAllocator* allocator;
-    VkcQueue* queue;
-    VkcPhysicalDevice* physical;
     VkDevice object;
     VkAllocationCallbacks callbacks;
 } VkcDevice;
