@@ -13,24 +13,24 @@
  * @{
  */
 
-typedef struct VkcPhysicalDeviceList {
+typedef struct VkcDeviceList {
     PageAllocator* allocator;
     VkPhysicalDevice* devices;
     uint32_t count;
-} VkcPhysicalDeviceList;
+} VkcDeviceList;
 
-VkcPhysicalDeviceList* vkc_physical_device_list_create(VkcInstance* instance) {
+VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         return NULL;
     }
 
-    VkcPhysicalDeviceList* list = page_malloc(allocator, sizeof(*list), alignof(*list));
+    VkcDeviceList* list = page_malloc(allocator, sizeof(*list), alignof(*list));
     if (!list) {
         return NULL;
     }
 
-    *list = (VkcPhysicalDeviceList) {
+    *list = (VkcDeviceList) {
         .allocator = allocator,
         .devices = NULL,
         .count = 0,
@@ -39,7 +39,7 @@ VkcPhysicalDeviceList* vkc_physical_device_list_create(VkcInstance* instance) {
     VkResult result = vkEnumeratePhysicalDevices(instance->object, &list->count, NULL);
     if (VK_SUCCESS != result || 0 == list->count) {
         LOG_ERROR(
-            "[VkPhysicalDevice] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
+            "[VkcDeviceList] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
             result,
             list->count
         );
@@ -52,23 +52,23 @@ VkcPhysicalDeviceList* vkc_physical_device_list_create(VkcInstance* instance) {
         alignof(VkPhysicalDevice)
     );
     if (NULL == list->devices) {
-        LOG_ERROR("[VkPhysicalDevice] Failed to allocate device list.");
+        LOG_ERROR("[VkcDeviceList] Failed to allocate device list.");
         return NULL;
     }
 
     result = vkEnumeratePhysicalDevices(instance->object, &list->count, list->devices);
     if (VK_SUCCESS != result) {
-        LOG_ERROR("[VkPhysicalDevice] Failed to enumerate devices (VkResult: %d)", result);
+        LOG_ERROR("[VkcDeviceList] Failed to enumerate devices (VkResult: %d)", result);
         return NULL;
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
-    LOG_DEBUG("[VkcPhysicalDeviceList] Found %u devices.", list->count);
+    LOG_DEBUG("[VkcDeviceList] Found %u devices.", list->count);
     for (uint32_t i = 0; i < list->count; i++) {
         VkPhysicalDevice device = list->devices[i];
         VkPhysicalDeviceProperties properties = {0};
         vkGetPhysicalDeviceProperties(device, &properties);    
-        LOG_DEBUG("[VkcPhysicalDeviceList] i=%u, name=%s, type=%d", 
+        LOG_DEBUG("[VkcDeviceList] i=%u, name=%s, type=%d", 
             i, properties.deviceName, (int) properties.deviceType
         );
     }
@@ -77,7 +77,7 @@ VkcPhysicalDeviceList* vkc_physical_device_list_create(VkcInstance* instance) {
     return list;
 }
 
-void vkc_physical_device_list_free(VkcPhysicalDeviceList* list) {
+void vkc_device_list_free(VkcDeviceList* list) {
     if (list && list->allocator) {
         page_allocator_free(list->allocator);
     }
@@ -182,7 +182,7 @@ typedef struct VkcDevice {
     VkAllocationCallbacks callbacks;
 } VkcDevice;
 
-bool vkc_physical_device_select(VkcDevice* device, VkcPhysicalDeviceList* list) {
+bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
     static const VkPhysicalDeviceType type[] = {
         VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
         VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
@@ -302,7 +302,7 @@ int main(void) {
 
     /** @} */
 
-    VkcPhysicalDeviceList* device_list = vkc_physical_device_list_create(instance);
+    VkcDeviceList* device_list = vkc_device_list_create(instance);
     if (!device_list) {
         goto cleanup_instance;
     }
@@ -313,7 +313,7 @@ int main(void) {
      */
 
     // Device List
-    vkc_physical_device_list_free(device_list);
+    vkc_device_list_free(device_list);
 
     // Instance
     vkc_instance_free(instance);
