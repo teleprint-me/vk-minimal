@@ -1,6 +1,6 @@
 /**
  * @file src/vk/allocator.c
- * @brief A wrapper for interfacing with Vulkan Host Memory.
+ * @brief Vulkan Host Memory Allocator using a tracked page map.
  */
 
 #include "core/posix.h"
