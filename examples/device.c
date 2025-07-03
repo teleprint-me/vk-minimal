@@ -3,6 +3,7 @@
  */
 
 #include "core/logger.h"
+#include "utf8/raw.h"
 #include "vk/instance.h"
 
 #include <stdlib.h>
@@ -12,6 +13,18 @@
  * @name Device Structures
  * @{
  */
+
+typedef struct VkcDeviceLayer {
+    PageAllocator* allocator;
+    VkLayerProperties* properties;
+    uint32_t count;
+} VkcDeviceLayer;
+
+typedef struct VkcDeviceLayerMatch {
+    PageAllocator* allocator;
+    char** names;
+    uint32_t count;
+} VkcDeviceLayerMatch;
 
 typedef struct VkcDeviceList {
     PageAllocator* allocator;
@@ -250,12 +263,6 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
  * @{
  */
 
-typedef struct VkcDeviceLayer {
-    PageAllocator* allocator;
-    VkLayerProperties* properties;
-    uint32_t count;
-} VkcDeviceLayer;
-
 VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
@@ -330,6 +337,94 @@ void vkc_device_layer_free(VkcDeviceLayer* layer) {
  * @name Device Layer Match
  * @{
  */
+
+VkcDeviceLayerMatch* vkc_device_layer_match_create(
+    VkcDeviceLayer* layer, const char* const* names, const uint32_t name_count
+) {
+    if (!layer || !names || name_count == 0) return NULL;
+
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcDeviceLayerMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
+    if (!match) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate result.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *match = (VkcDeviceLayerMatch){
+        .allocator = allocator,
+        .names = NULL,
+        .count = 0,
+    };
+
+    // First pass: count matching layers
+    for (uint32_t i = 0; i < layer->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
+                match->count++;
+            }
+        }
+    }
+
+    if (match->count == 0) {
+        LOG_ERROR("[VkcDeviceLayerMatch] No requested layers were available:");
+        for (uint32_t i = 0; i < name_count; i++) {
+            LOG_ERROR("  - %s", names[i]);
+        }
+        LOG_INFO("Available device layers:");
+        for (uint32_t i = 0; i < layer->count; i++) {
+            LOG_INFO("  - %s", layer->properties[i].layerName);
+        }
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
+    if (!match->names) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate name pointer array.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    // Second pass: copy the matching names
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < layer->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
+                char* copy = utf8_raw_copy(layer->properties[i].layerName);
+                if (!copy) {
+                    LOG_ERROR("[VkcDeviceLayerMatch] Failed to copy name.");
+                    page_allocator_free(allocator);
+                    return NULL;
+                }
+
+                page_add(allocator, copy, utf8_raw_byte_count(copy), alignof(char));
+                match->names[k++] = copy;
+            }
+        }
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log the results to standard output
+    LOG_DEBUG("[VkcDeviceLayerMatch] Matched %u device layer properties.", match->count);
+    for (uint32_t i = 0; i < match->count; i++) {
+        LOG_DEBUG("[VkcDeviceLayerMatch] i=%u, name=%s", i, match->names[i]);
+    }
+#endif
+
+    return match;
+}
+
+void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
+    if (match && match->allocator) {
+        page_allocator_free(match->allocator);
+    }
+}
 
 /** @} */
 
