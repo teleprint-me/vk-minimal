@@ -36,7 +36,7 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 add_library(vkc SHARED
     "src/vk/allocator.c"
     "src/vk/instance.c"
-    # "src/vk/device.c"
+    "src/vk/device.c"
     "src/vk/shader.c"
 )
 target_include_directories("vkc" PUBLIC include dsa/include)
