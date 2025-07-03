@@ -16,9 +16,9 @@
  */
 
 VkcInstanceLayer* vkc_instance_layer_create(void) {
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcInstanceLayer] Failed to create allocator.");
+        LOG_ERROR("[VkcInstanceLayer] Failed to get global allocator.");
         return NULL;
     }
 
@@ -30,7 +30,6 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
     }
 
     *layer = (VkcInstanceLayer){
-        .allocator = allocator,
         .properties = NULL,
         .count = 0,
     };
@@ -71,8 +70,10 @@ VkcInstanceLayer* vkc_instance_layer_create(void) {
 }
 
 void vkc_instance_layer_free(VkcInstanceLayer* layer) {
-    if (layer && layer->allocator) {
-        page_allocator_free(layer->allocator);
+    if (layer && layer->properties) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, layer->properties);
+        page_free(allocator, layer);
     }
 }
 
@@ -88,9 +89,9 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 ) {
     if (!layer || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcInstanceLayerMatch] Failed to create allocator.");
+        LOG_ERROR("[VkcInstanceLayerMatch] Failed to get global allocator.");
         return NULL;
     }
 
@@ -102,7 +103,6 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
     }
 
     *match = (VkcInstanceLayerMatch){
-        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -166,8 +166,10 @@ VkcInstanceLayerMatch* vkc_instance_layer_match_create(
 }
 
 void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
-    if (match && match->allocator) {
-        page_allocator_free(match->allocator);
+    if (match && match->names) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, match->names);
+        page_free(allocator, match);
     }
 }
 
@@ -179,41 +181,40 @@ void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match) {
  */
 
 VkcInstanceExtension* vkc_instance_extension_create(void) {
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcInstanceExtension] Failed to create allocator.");
+        LOG_ERROR("[VkcInstanceExtension] Failed to get global allocator.");
         return NULL;
     }
 
-    VkcInstanceExtension* ext = page_malloc(allocator, sizeof(*ext), alignof(*ext));
-    if (!ext) {
+    VkcInstanceExtension* extension = page_malloc(allocator, sizeof(*extension), alignof(*extension));
+    if (!extension) {
         LOG_ERROR("[VkcInstanceExtension] Failed to allocate instance extension structure.");
         page_allocator_free(allocator);
         return NULL;
     }
 
-    *ext = (VkcInstanceExtension){
-        .allocator = allocator,
+    *extension = (VkcInstanceExtension){
         .properties = NULL,
         .count = 0,
     };
 
-    VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, NULL);
-    if (VK_SUCCESS != result || 0 == ext->count) {
+    VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &extension->count, NULL);
+    if (VK_SUCCESS != result || 0 == extension->count) {
         LOG_ERROR("[VkcInstanceExtension] Failed to enumerate extension count (VkResult: %d).", result);
         page_allocator_free(allocator);
         return NULL;
     }
 
-    ext->properties = page_malloc(
-        allocator, ext->count * sizeof(VkExtensionProperties), alignof(VkExtensionProperties));
-    if (!ext->properties) {
-        LOG_ERROR("[VkcInstanceExtension] Failed to allocate %u extension properties.", ext->count);
+    extension->properties = page_malloc(
+        allocator, extension->count * sizeof(VkExtensionProperties), alignof(VkExtensionProperties));
+    if (!extension->properties) {
+        LOG_ERROR("[VkcInstanceExtension] Failed to allocate %u extension properties.", extension->count);
         page_allocator_free(allocator);
         return NULL;
     }
 
-    result = vkEnumerateInstanceExtensionProperties(NULL, &ext->count, ext->properties);
+    result = vkEnumerateInstanceExtensionProperties(NULL, &extension->count, extension->properties);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcInstanceExtension] Failed to populate extension properties (VkResult: %d).", result);
         page_allocator_free(allocator);
@@ -221,19 +222,21 @@ VkcInstanceExtension* vkc_instance_extension_create(void) {
     }
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
-    LOG_DEBUG("[VkcInstanceExtension] Found %u instance extension properties.", ext->count);
-    for (uint32_t i = 0; i < ext->count; i++) {
+    LOG_DEBUG("[VkcInstanceExtension] Found %u instance extension properties.", extension->count);
+    for (uint32_t i = 0; i < extension->count; i++) {
         LOG_DEBUG("[VkcInstanceExtension] i=%u, name=%s, version=%u",
-            i, ext->properties[i].extensionName, ext->properties[i].specVersion);
+            i, extension->properties[i].extensionName, extension->properties[i].specVersion);
     }
 #endif
 
-    return ext;
+    return extension;
 }
 
 void vkc_instance_extension_free(VkcInstanceExtension* extension) {
-    if (extension && extension->allocator) {
-        page_allocator_free(extension->allocator);
+    if (extension && extension->properties) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, extension->properties);
+        page_free(allocator, extension);
     }
 }
 
@@ -249,9 +252,9 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 ) {
     if (!extension || !names || name_count == 0) return NULL;
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcInstanceExtensionMatch] Failed to create allocator.");
+        LOG_ERROR("[VkcInstanceExtensionMatch] Failed to get global allocator.");
         return NULL;
     }
 
@@ -263,7 +266,6 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
     }
 
     *match = (VkcInstanceExtensionMatch){
-        .allocator = allocator,
         .names = NULL,
         .count = 0,
     };
@@ -327,8 +329,10 @@ VkcInstanceExtensionMatch* vkc_instance_extension_match_create(
 }
 
 void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match) {
-    if (match && match->allocator) {
-        page_allocator_free(match->allocator);
+    if (match && match->names) {
+        PageAllocator* allocator = vkc_allocator_get();
+        page_free(allocator, match->names);
+        page_free(allocator, match);
     }
 }
 
@@ -397,9 +401,9 @@ VkcInstance* vkc_instance_create(
         create_info.ppEnabledExtensionNames = (const char* const*) extension_match->names;
     }
 
-    PageAllocator* allocator = page_allocator_create(1);
+    PageAllocator* allocator = vkc_allocator_get();
     if (!allocator) {
-        LOG_ERROR("[VkcInstance] Failed to create page allocator.");
+        LOG_ERROR("[VkcInstance] Failed to get global allocator.");
         return NULL;
     }
 
@@ -411,12 +415,11 @@ VkcInstance* vkc_instance_create(
     }
 
     *instance = (VkcInstance){
-        .allocator = allocator,
         .object = VK_NULL_HANDLE,
-        .callbacks = vkc_page_callbacks(allocator),
+        .callbacks = vkc_allocator_callbacks(),
     };
 
-    result = vkCreateInstance(&create_info, &instance->callbacks, &instance->object);
+    result = vkCreateInstance(&create_info, instance->callbacks, &instance->object);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcInstance] Failed to create instance object (VkResult=%d)", result);
         page_allocator_free(allocator);
@@ -431,9 +434,9 @@ VkcInstance* vkc_instance_create(
 }
 
 void vkc_instance_free(VkcInstance* instance) {
-    if (instance && instance->allocator && instance->object) {
-        vkDestroyInstance(instance->object, &instance->callbacks);
-        page_allocator_free(instance->allocator);
+    if (instance && instance->object) {
+        vkDestroyInstance(instance->object, instance->callbacks);
+        page_free(vkc_allocator_get(), instance);
     }
 }
 

@@ -3,6 +3,7 @@
  */
 
 #include "core/logger.h"
+#include "vk/allocator.h"
 #include "vk/instance.h"
 
 #include <stdlib.h>
@@ -20,6 +21,17 @@ int main(void) {
 #else
     LOG_INFO("[VkCompute] Release mode.");
 #endif
+
+    /** @} */
+
+    /**
+     * @name Initialize Global Allocators
+     * @{
+     */
+
+    if (!vkc_allocator_create()) {
+        return EXIT_FAILURE;
+    }
 
     /** @} */
 
@@ -84,6 +96,10 @@ int main(void) {
     vkc_instance_layer_free(layer);
     vkc_instance_free(instance);
 
+    if (!vkc_allocator_destroy()) {
+        return EXIT_FAILURE;
+    }
+
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
     LOG_DEBUG("[VkCompute] Debug Mode: Exit Success");
 #else
@@ -104,6 +120,7 @@ cleanup_properties:
     vkc_instance_extension_free(extension);
     vkc_instance_layer_match_free(layer_match);
     vkc_instance_layer_free(layer);
+    vkc_allocator_destroy();
 
 #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
     LOG_DEBUG("[VkCompute] Debug Mode: Exit Failure");

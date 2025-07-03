@@ -32,7 +32,6 @@ extern "C" {
  * Allocated using a tracked page allocator.
  */
 typedef struct VkcInstanceLayer {
-    PageAllocator* allocator; /**< Internal allocator context. */
     VkLayerProperties* properties; /**< Array of enumerated layer properties. */
     uint32_t count; /**< Number of available layer properties. */
 } VkcInstanceLayer;
@@ -64,7 +63,6 @@ void vkc_instance_layer_free(VkcInstanceLayer* layer);
  * Used for populating `VkInstanceCreateInfo::ppEnabledLayerNames`.
  */
 typedef struct VkcInstanceLayerMatch {
-    PageAllocator* allocator; /**< Internal allocator context. */
     char** names; /**< Array of UTF-8 layer name strings. */
     uint32_t count; /**< Number of matched layer names. */
 } VkcInstanceLayerMatch;
@@ -102,7 +100,6 @@ void vkc_instance_layer_match_free(VkcInstanceLayerMatch* match);
  * Allocated using a tracked page allocator.
  */
 typedef struct VkcInstanceExtension {
-    PageAllocator* allocator; /**< Internal allocator context. */
     VkExtensionProperties* properties; /**< Array of enumerated extension properties. */
     uint32_t count; /**< Number of available extension properties. */
 } VkcInstanceExtension;
@@ -134,7 +131,6 @@ void vkc_instance_extension_free(VkcInstanceExtension* extension);
  * Used for populating `VkInstanceCreateInfo::ppEnabledExtensionNames`.
  */
 typedef struct VkcInstanceExtensionMatch {
-    PageAllocator* allocator; /**< Internal allocator context. */
     char** names; /**< Array of UTF-8 extension name strings. */
     uint32_t count; /**< Number of matched extension names. */
 } VkcInstanceExtensionMatch;
@@ -170,9 +166,8 @@ void vkc_instance_extension_match_free(VkcInstanceExtensionMatch* match);
  * @brief Encapsulated Vulkan instance object with internal allocator tracking.
  */
 typedef struct VkcInstance {
-    PageAllocator* allocator; /**< Internal allocation map (address → metadata). */
     VkInstance object; /**< Vulkan instance handle. */
-    VkAllocationCallbacks callbacks; /**< Allocator callbacks used for Vulkan object creation. */
+    const VkAllocationCallbacks* callbacks; /**< Allocator callbacks used for Vulkan object creation. */
 } VkcInstance;
 
 /**
