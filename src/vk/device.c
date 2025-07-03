@@ -1,10 +1,22 @@
 /**
  * @file src/vk/device.c
+ * 
+ * VkcDevice Setup Flow:
+ *
+ *   - VkcDeviceList         ← Enumerate VkPhysicalDevice
+ *   - VkcDeviceQueueFamily  ← For each VkPhysicalDevice, find usable queues
+ *   - VkcDeviceLayer        ← Optional: enumerate & match device validation layers
+ *   - VkcDeviceExtension    ← Optional: enumerate & match device extensions
+ *   - vkc_physical_device_select() ← Selects one based on VK_QUEUE_COMPUTE_BIT
  */
 
 #include "core/posix.h"
+#include "core/memory.h"
 #include "core/logger.h"
+#include "utf8/raw.h"
+
 #include "vk/allocator.h"
+#include "vk/instance.h"
 #include "vk/device.h"
 
 /**
@@ -12,7 +24,7 @@
  * @{
  */
 
-VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
+VkcDeviceList* vkc_device_list_create(VkInstance instance) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         return NULL;
@@ -29,7 +41,7 @@ VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
         .count = 0,
     };
 
-    VkResult result = vkEnumeratePhysicalDevices(instance->object, &list->count, NULL);
+    VkResult result = vkEnumeratePhysicalDevices(instance, &list->count, NULL);
     if (VK_SUCCESS != result || 0 == list->count) {
         LOG_ERROR(
             "[VkcDeviceList] No Vulkan-compatible devices found (VkResult: %d, Count: %u)",
@@ -49,7 +61,7 @@ VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
         return NULL;
     }
 
-    result = vkEnumeratePhysicalDevices(instance->object, &list->count, list->devices);
+    result = vkEnumeratePhysicalDevices(instance, &list->count, list->devices);
     if (VK_SUCCESS != result) {
         LOG_ERROR("[VkcDeviceList] Failed to enumerate devices (VkResult: %d)", result);
         return NULL;
@@ -165,7 +177,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
                 return false;
             }
 
-    #if defined(DEBUG) && (1 == DEBUG)
+    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
             LOG_DEBUG("[VkcPhysicalDevice] Candidate %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
     #endif
 
@@ -187,7 +199,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
 
             vkc_device_queue_family_free(family);
             if (selected) {
-    #if defined(DEBUG) && (1 == DEBUG)
+    #if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
                 LOG_DEBUG("[VkcPhysicalDevice] Selected %u: %s, type=%d", j, properties.deviceName, properties.deviceType);
     #endif
                 return true;
@@ -201,49 +213,254 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
 
 /** @} */
 
-VkDeviceQueueCreateInfo vkc_physical_device_queue_create_info(VkcDevice* device) {
-    static const float queue_priorities[1] = {1.0f};
-    return (VkDeviceQueueCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = device->queue_family_index,
-        .queueCount = 1,
-        .pQueuePriorities = queue_priorities,
-    };
-}
+/**
+ * @name Device Layers
+ * @{
+ */
 
-VkDeviceCreateInfo
-vkc_logical_device_create_info(VkcDevice* device, VkDeviceQueueCreateInfo queue_info) {
-    /// @note Extension returns -7 (VK_ERROR_EXTENSION_NOT_PRESENT)
-    VkcValidationLayer* validation
-        = vkc_validation_layer_create((const char*[]) {"VK_LAYER_KHRONOS_validation"}, 1, 1024);
-    // VkcExtension* extension = vkc_extension_create((const char*[]) {"VK_EXT_debug_utils"}, 1,
-    // 1024);
+VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to create allocator context.");
+        return NULL;
+    } 
 
-    VkDeviceCreateInfo create_info = {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = NULL,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queue_info,
-        // .enabledExtensionCount = extension->request->count,
-        // .ppEnabledExtensionNames = extension->request->names,
-        .enabledLayerCount = validation->request->count,
-        .ppEnabledLayerNames = validation->request->names,
-        .pEnabledFeatures = &device->features,
+    VkcDeviceLayer* layer = page_malloc(allocator, sizeof(*layer), alignof(*layer));
+    if (!layer) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to allocate device layer structure.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *layer = (VkcDeviceLayer) {
+        .allocator = allocator,
+        .properties = NULL,
+        .count = 0,
     };
 
-    vkc_validation_layer_free(validation);
-    // vkc_extension_free(extension);
+    VkResult result = vkEnumerateDeviceLayerProperties(device, &layer->count, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer property count.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
 
-    return create_info;
+    if (0 == layer->count) {
+        LOG_ERROR("[VkcDeviceLayer] Device layer properties are unavailable.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    layer->properties = page_malloc(
+        allocator,
+        layer->count * sizeof(VkLayerProperties),
+        alignof(VkLayerProperties) 
+    );
+
+    if (NULL == layer->properties) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to allocate %u device layer properties.", layer->count);
+        return NULL;
+    }
+
+    result = vkEnumerateDeviceLayerProperties(device, &layer->count, layer->properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceLayer] Failed to enumerate device layer properties.");
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+        LOG_DEBUG("[VkcDeviceLayer] Found %u device layer properties.", layer->count);
+        for (uint32_t i = 0; i < layer->count; i++) {
+            LOG_DEBUG("[VkcDeviceLayer] i=%u, name=%s, description=%s", 
+                i, layer->properties[i].layerName, layer->properties[i].description
+            );
+        }
+#endif
+
+    return layer;
 }
+
+void vkc_device_layer_free(VkcDeviceLayer* layer) {
+    if (layer && layer->allocator) {
+        page_allocator_free(layer->allocator);
+    }
+}
+
+/** @} */
+
+/**
+ * @name Device Layer Match
+ * @{
+ */
+
+VkcDeviceLayerMatch* vkc_device_layer_match_create(
+    VkcDeviceLayer* layer, const char* const* names, const uint32_t name_count
+) {
+    if (!layer || !names || name_count == 0) return NULL;
+
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcDeviceLayerMatch* match = page_malloc(allocator, sizeof(*match), alignof(*match)); 
+    if (!match) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate result.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *match = (VkcDeviceLayerMatch){
+        .allocator = allocator,
+        .names = NULL,
+        .count = 0,
+    };
+
+    // First pass: count matching layers
+    for (uint32_t i = 0; i < layer->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
+                match->count++;
+            }
+        }
+    }
+
+    if (match->count == 0) {
+        LOG_ERROR("[VkcDeviceLayerMatch] No requested layers were available:");
+        for (uint32_t i = 0; i < name_count; i++) {
+            LOG_ERROR("  - %s", names[i]);
+        }
+        LOG_INFO("Available device layers:");
+        for (uint32_t i = 0; i < layer->count; i++) {
+            LOG_INFO("  - %s", layer->properties[i].layerName);
+        }
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    match->names = page_malloc(allocator, match->count * sizeof(char*), alignof(char*));
+    if (!match->names) {
+        LOG_ERROR("[VkcDeviceLayerMatch] Failed to allocate name pointer array.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    // Second pass: copy the matching names
+    uint32_t k = 0;
+    for (uint32_t i = 0; i < layer->count; i++) {
+        for (uint32_t j = 0; j < name_count; j++) {
+            if (0 == utf8_raw_compare(names[j], layer->properties[i].layerName)) {
+                char* copy = utf8_raw_copy(layer->properties[i].layerName);
+                if (!copy) {
+                    LOG_ERROR("[VkcDeviceLayerMatch] Failed to copy name.");
+                    page_allocator_free(allocator);
+                    return NULL;
+                }
+
+                page_add(allocator, copy, utf8_raw_byte_count(copy), alignof(char));
+                match->names[k++] = copy;
+            }
+        }
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log the results to standard output
+    LOG_DEBUG("[VkcDeviceLayerMatch] Matched %u device layer properties.", match->count);
+    for (uint32_t i = 0; i < match->count; i++) {
+        LOG_DEBUG("[VkcDeviceLayerMatch] i=%u, name=%s", i, match->names[i]);
+    }
+#endif
+
+    return match;
+}
+
+void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
+    if (match && match->allocator) {
+        page_allocator_free(match->allocator);
+    }
+}
+
+/** @} */
+
+/**
+ * @name Device Extensions
+ * @{
+ */
+
+VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcDeviceExtension* extension = page_malloc(allocator, sizeof(*extension), alignof(*extension));
+    if (!extension) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to allocate extension structure.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *extension = (VkcDeviceExtension) {
+        .allocator = allocator,
+        .properties = NULL,
+        .count = 0,
+    };
+
+    VkResult result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension property count.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    extension->properties = page_malloc(
+        allocator,
+        extension->count * sizeof(VkExtensionProperties),
+        alignof(VkExtensionProperties)
+    );
+
+    if (!extension->properties) {
+        LOG_ERROR(
+            "[VkcDeviceExtension] Failed to allocate %u device extension properties.", extension->count);
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, extension->properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension properties.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log supported extensions
+    LOG_DEBUG("[VkcDeviceExtension] Found %u device extensions.", extension->count);
+    for (uint32_t i = 0; i < extension->count; i++) {
+        LOG_DEBUG("[VkcDeviceExtension] i=%u, name=%s", i, extension->properties[i].extensionName);
+    }
+#endif
+
+    return extension;
+}
+
+void vkc_device_extension_free(VkcDeviceExtension* extension) {
+    if (extension && extension->allocator) {
+        page_allocator_free(extension->allocator);
+    }
+}
+
+/** @} */
 
 /**
  * @name Public methods
  * {@
  */
 
-VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size) {
-    PageAllocator* pager = page_allocator_create(page_size);
+VkcDevice* vkc_device_create(VkcInstance* instance) {
+    PageAllocator* pager = page_allocator_create(1);
     if (!pager) {
         LOG_ERROR("Failed to create device pager.");
         return NULL;

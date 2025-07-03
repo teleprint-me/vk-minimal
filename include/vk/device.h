@@ -1,5 +1,13 @@
 /**
  * @file include/vk/device.h
+ * 
+ * VkcDevice Setup Flow:
+ *
+ *   - VkcDeviceList         ← Enumerate VkPhysicalDevice
+ *   - VkcDeviceQueueFamily  ← For each VkPhysicalDevice, find usable queues
+ *   - VkcDeviceLayer        ← Optional: enumerate & match device validation layers
+ *   - VkcDeviceExtension    ← Optional: enumerate & match device extensions
+ *   - vkc_physical_device_select() ← Selects one based on VK_QUEUE_COMPUTE_BIT
  */
 
 #ifndef VKC_DEVICE_H
@@ -24,7 +32,7 @@ typedef struct VkcDeviceList {
     uint32_t count;
 } VkcDeviceList;
 
-VkcDeviceList* vkc_device_list_create(VkcInstance* instance);
+VkcDeviceList* vkc_device_list_create(VkInstance instance);
 void vkc_device_list_free(VkcDeviceList* list);
 
 /** @} */
@@ -42,6 +50,81 @@ typedef struct VkcDeviceQueueFamily {
 
 VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device);
 void vkc_device_queue_family_free(VkcDeviceQueueFamily* family);
+
+/** @} */
+
+/**
+ * @defgroup Physical Device Selection
+ * @{
+ */
+
+bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list);
+
+/** @} */
+
+/**
+ * @defgroup Device Layer Query
+ * @{
+ */
+
+typedef struct VkcDeviceLayer {
+    PageAllocator* allocator;
+    VkLayerProperties* properties;
+    uint32_t count;
+} VkcDeviceLayer;
+
+VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device);
+void vkc_device_layer_free(VkcDeviceLayer* layer);
+
+/** @} */
+
+/**
+ * @defgroup Device Layer Match and Filter
+ * @{
+ */
+
+typedef struct VkcDeviceLayerMatch {
+    PageAllocator* allocator;
+    char** names;
+    uint32_t count;
+} VkcDeviceLayerMatch;
+
+VkcDeviceLayerMatch* vkc_device_layer_match_create(
+    VkcDeviceLayer* layer, const char* const* names, const uint32_t name_count);
+void vkc_device_layer_match_free(VkcDeviceLayerMatch* match);
+
+/** @} */
+
+/**
+ * @defgroup
+ * @{
+ */
+
+typedef struct VkcDeviceExtension {
+    PageAllocator* allocator;
+    VkExtensionProperties* properties;
+    uint32_t count;
+} VkcDeviceExtension;
+
+VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device);
+void vkc_device_extension_free(VkcDeviceExtension* extension);
+
+/** @} */
+
+/**
+ * @defgroup
+ * @{
+ */
+
+typedef struct VkcDeviceExtensionMatch {
+    PageAllocator* allocator;
+    char** names;
+    uint32_t count;
+} VkcDeviceExtensionMatch;
+
+VkcDeviceExtensionMatch* vkc_device_extension_match_create(
+    VkcDeviceExtension* extension, const char* const* names, const uint32_t name_count);
+void vkc_device_extension_match_free(VkcDeviceLayerMatch* match);
 
 /** @} */
 
@@ -69,7 +152,7 @@ typedef struct VkcDevice {
     VkAllocationCallbacks callbacks;
 } VkcDevice;
 
-VkcDevice* vkc_device_create(VkcInstance* instance, size_t page_size);
+VkcDevice* vkc_device_create(VkcInstance* instance);
 void vkc_device_destroy(VkcDevice* device);
 
 #ifdef __cplusplus
