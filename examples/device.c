@@ -26,6 +26,18 @@ typedef struct VkcDeviceLayerMatch {
     uint32_t count;
 } VkcDeviceLayerMatch;
 
+typedef struct VkcDeviceExtension {
+    PageAllocator* allocator;
+    VkExtensionProperties* properties;
+    uint32_t count;
+} VkcDeviceExtension;
+
+typedef struct VkcDeviceExtensionMatch {
+    PageAllocator* allocator;
+    char** names;
+    uint32_t count;
+} VkcDeviceExtensionMatch;
+
 typedef struct VkcDeviceList {
     PageAllocator* allocator;
     VkPhysicalDevice* devices;
@@ -423,6 +435,77 @@ VkcDeviceLayerMatch* vkc_device_layer_match_create(
 void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
     if (match && match->allocator) {
         page_allocator_free(match->allocator);
+    }
+}
+
+/** @} */
+
+/**
+ * @name Device Extensions
+ * @{
+ */
+
+VkcDeviceExtension* vkc_device_extension_create(VkPhysicalDevice device) {
+    PageAllocator* allocator = page_allocator_create(1);
+    if (!allocator) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to create allocator.");
+        return NULL;
+    }
+
+    VkcDeviceExtension* extension = page_malloc(allocator, sizeof(*extension), alignof(*extension));
+    if (!extension) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to allocate extension structure.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    *extension = (VkcDeviceExtension) {
+        .allocator = allocator,
+        .properties = NULL,
+        .count = 0,
+    };
+
+    VkResult result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, NULL);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension property count.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    extension->properties = page_malloc(
+        allocator,
+        extension->count * sizeof(VkExtensionProperties),
+        alignof(VkExtensionProperties)
+    );
+
+    if (!extension->properties) {
+        LOG_ERROR(
+            "[VkcDeviceExtension] Failed to allocate %u device extension properties.", extension->count);
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+    result = vkEnumerateDeviceExtensionProperties(device, NULL, &extension->count, extension->properties);
+    if (VK_SUCCESS != result) {
+        LOG_ERROR("[VkcDeviceExtension] Failed to enumerate device extension properties.");
+        page_allocator_free(allocator);
+        return NULL;
+    }
+
+#if defined(VKC_DEBUG) && (1 == VKC_DEBUG)
+    // Log supported extensions
+    LOG_DEBUG("[VkcDeviceExtension] Found %u device extensions.", extension->count);
+    for (uint32_t i = 0; i < extension->count; i++) {
+        LOG_DEBUG("[VkcDeviceExtension] i=%u, name=%s", i, extension->properties[i].extensionName);
+    }
+#endif
+
+    return extension;
+}
+
+void vkc_device_extension_free(VkcDeviceExtension* extension) {
+    if (extension && extension->allocator) {
+        page_allocator_free(extension);
     }
 }
 
