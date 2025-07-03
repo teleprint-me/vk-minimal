@@ -20,7 +20,7 @@
 #include "vk/device.h"
 
 /**
- * @name Physical Device List
+ * @name DeviceList Physical Device List
  * @{
  */
 
@@ -91,7 +91,7 @@ void vkc_device_list_free(VkcDeviceList* list) {
 /** @} */
 
 /**
- * @name Queue Family Properties
+ * @name DeviceQueueFamily Queue Family Properties
  * @{
  */
 
@@ -153,7 +153,7 @@ void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
 /** @} */
 
 /**
- * @name Physical Device Selection
+ * @name DeviceSelection Physical Device Selection
  * @{
  */
 
@@ -214,7 +214,7 @@ bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
 /** @} */
 
 /**
- * @name Device Layers
+ * @name DeviceLayerQuery Device Layer Query
  * @{
  */
 
@@ -289,7 +289,7 @@ void vkc_device_layer_free(VkcDeviceLayer* layer) {
 /** @} */
 
 /**
- * @name Device Layer Match
+ * @name DeviceLayerMatch Device Layer Match
  * @{
  */
 
@@ -384,7 +384,7 @@ void vkc_device_layer_match_free(VkcDeviceLayerMatch* match) {
 /** @} */
 
 /**
- * @name Device Extensions
+ * @name DeviceExtensionQuery Device Extension Query
  * @{
  */
 
@@ -455,8 +455,15 @@ void vkc_device_extension_free(VkcDeviceExtension* extension) {
 /** @} */
 
 /**
- * @name Public methods
- * {@
+ * @name DeviceExtensionMatch Device Extension Match
+ * @{
+ */
+
+/** @} */
+
+/**
+ * @name DeviceCore Logical Device Wrapper
+ * @{
  */
 
 // VkcDevice* vkc_device_create(VkcInstance* instance) {
