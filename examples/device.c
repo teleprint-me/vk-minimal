@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 /**
- * @name VkC Physical Device List
+ * @name Device Structures
  * @{
  */
 
@@ -18,6 +18,43 @@ typedef struct VkcDeviceList {
     VkPhysicalDevice* devices;
     uint32_t count;
 } VkcDeviceList;
+
+typedef struct VkcDeviceQueueFamily {
+    PageAllocator* allocator;
+    VkQueueFamilyProperties* properties;
+    uint32_t count;
+} VkcDeviceQueueFamily;
+
+typedef struct VkcQueue {
+    VkQueue object;
+    VkQueueFamilyProperties family_properties;
+    float* priorities;
+    uint32_t family_index;
+    uint32_t index;
+    uint32_t count;
+} VkcQueue;
+
+typedef struct VkcPhysicalDevice {
+    VkPhysicalDevice object;
+    VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceFeatures features;
+    VkPhysicalDeviceType type;
+} VkcPhysicalDevice;
+
+typedef struct VkcDevice {
+    PageAllocator* allocator;
+    VkcQueue* queue;
+    VkcPhysicalDevice* physical;
+    VkDevice object;
+    VkAllocationCallbacks callbacks;
+} VkcDevice;
+
+/** @} */
+
+/**
+ * @name Physical Device List
+ * @{
+ */
 
 VkcDeviceList* vkc_device_list_create(VkcInstance* instance) {
     PageAllocator* allocator = page_allocator_create(1);
@@ -90,12 +127,6 @@ void vkc_device_list_free(VkcDeviceList* list) {
  * @{
  */
 
-typedef struct VkcDeviceQueueFamily {
-    PageAllocator* allocator;
-    VkQueueFamilyProperties* properties;
-    uint32_t count;
-} VkcDeviceQueueFamily;
-
 VkcDeviceQueueFamily* vkc_device_queue_family_create(VkPhysicalDevice device) {
     if (!device) {
         LOG_ERROR("[VkcDeviceQueueFamily] Invalid physical device.");
@@ -157,30 +188,6 @@ void vkc_device_queue_family_free(VkcDeviceQueueFamily* family) {
  * @name Physical Device Selection
  * @{
  */
-
-typedef struct VkcQueue {
-    VkQueue object;
-    VkQueueFamilyProperties family_properties;
-    float* priorities;
-    uint32_t family_index;
-    uint32_t index;
-    uint32_t count;
-} VkcQueue;
-
-typedef struct VkcPhysicalDevice {
-    VkPhysicalDevice object;
-    VkPhysicalDeviceProperties properties;
-    VkPhysicalDeviceFeatures features;
-    VkPhysicalDeviceType type;
-} VkcPhysicalDevice;
-
-typedef struct VkcDevice {
-    PageAllocator* allocator;
-    VkcQueue* queue;
-    VkcPhysicalDevice* physical;
-    VkDevice object;
-    VkAllocationCallbacks callbacks;
-} VkcDevice;
 
 bool vkc_physical_device_select(VkcDevice* device, VkcDeviceList* list) {
     static const VkPhysicalDeviceType type[] = {
