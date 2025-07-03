@@ -56,7 +56,7 @@ typedef struct VkcDevice {
  * @{
  */
 
-VkcDeviceList* vkc_device_list_create(VkInstance* instance) {
+VkcDeviceList* vkc_device_list_create(VkInstance instance) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         return NULL;
@@ -256,7 +256,7 @@ typedef struct VkcDeviceLayer {
     uint32_t count;
 } VkcDeviceLayer;
 
-VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice* device) {
+VkcDeviceLayer* vkc_device_layer_create(VkPhysicalDevice device) {
     PageAllocator* allocator = page_allocator_create(1);
     if (!allocator) {
         LOG_ERROR("[VkcDeviceLayer] Failed to create allocator context.");
@@ -397,7 +397,7 @@ int main(void) {
 
     /** @} */
 
-    VkcDeviceList* device_list = vkc_device_list_create(instance);
+    VkcDeviceList* device_list = vkc_device_list_create(instance->object);
     if (!device_list) {
         goto cleanup_instance;
     }
