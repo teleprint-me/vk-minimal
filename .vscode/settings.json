@@ -61,7 +61,8 @@
     "typeinfo": "c",
     "bitset": "c",
     "flat_map": "c",
-    "format": "c"
+    "format": "c",
+    "list": "c"
   },
   "workbench.panel.defaultLocation": "right"
 }
